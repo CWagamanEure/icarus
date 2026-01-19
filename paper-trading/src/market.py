@@ -15,6 +15,9 @@ class Market:
 
     @classmethod
     def from_condition(cls, condition_id: str, collateral_address: str) -> "Market":
+        """
+        Builds market object using polymarket market condition ID and collateral address
+        """
 
         yes = str(CTHelpers.get_token_id(condition_id, collateral_address, 0))
         no = str(CTHelpers.get_token_id(condition_id, collateral_address, 1))
@@ -26,6 +29,9 @@ class Market:
 
 
     def get_token_ids(self) -> list[TokenId]:
+        """
+        returns token_ids
+        """
         return [self.token_ids[Outcome.YES], self.token_ids[Outcome.NO]]
 
     def outcome_from_asset_id(self, asset_id: Union[str, int]) -> Outcome:
