@@ -1,3 +1,4 @@
+import heapq
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 from decimal import Decimal
@@ -132,6 +133,26 @@ class OrderBookState:
             "last_trade_price": str(self.last_trade_price) if self.last_trade_price else None,
         }
         return view
+
+    #------ Some Microstructure Stuff --------------
+
+    def depth_sum(self, side: str, n: int = 5) -> Decimal:
+
+        book = self.bids if side=="BUY" else self.asks
+        if not book or n<=0:
+            return Decimal("0")
+
+        if side == "BUY":
+            ticks = heapq.nlargest(n, book.keys())
+        else:
+            ticks = heapq.nsmallest(n, book.keys())
+
+        s = Decimal("0")
+        for t in ticks:
+            s += book[t]
+        return s
+        
+
 
 
 

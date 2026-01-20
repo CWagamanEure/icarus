@@ -13,7 +13,7 @@ class MarketState:
     books: Dict[str, OrderBookState]  = field(default_factory=dict)
 
     def __post_init__(self):
-        for aid in self.market.get_token_ids():
+        for aid in self.market.get_clob_token_ids():
             self.books.setdefault(aid, OrderBookState())
 
     def book(self, asset_id: str):
