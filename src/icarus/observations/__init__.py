@@ -4,6 +4,8 @@ from icarus.observations.normalizers import (
     BaseObservationNormalizer,
     CoinbaseObservationNormalizer,
     HyperliquidObservationNormalizer,
+    KrakenObservationNormalizer,
+    OkxObservationNormalizer,
 )
 from icarus.observations.types import (
     BBOObservation,
@@ -21,6 +23,8 @@ __all__ = [
     "CandleObservation",
     "CoinbaseObservationNormalizer",
     "HyperliquidObservationNormalizer",
+    "KrakenObservationNormalizer",
+    "OkxObservationNormalizer",
     "Observation",
     "OrderBookDeltaObservation",
     "OrderBookLevel",

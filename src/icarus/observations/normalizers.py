@@ -420,3 +420,284 @@ class CoinbaseObservationNormalizer(BaseObservationNormalizer):
     @staticmethod
     def _coerce_optional_str(value: Any) -> str | None:
         return str(value) if value is not None else None
+
+
+class KrakenObservationNormalizer(BaseObservationNormalizer):
+    exchange = "kraken"
+
+    def normalize_message(
+        self,
+        raw_message: dict[str, Any],
+        *,
+        received_timestamp_ms: int | None = None,
+    ) -> list[Observation]:
+        channel = raw_message.get("channel")
+        message_type = raw_message.get("type")
+        data = raw_message.get("data")
+        if not isinstance(data, list):
+            return []
+
+        if channel == "ticker":
+            return self._normalize_tickers(raw_message, data, received_timestamp_ms)
+        if channel == "trade":
+            return self._normalize_trades(raw_message, data, received_timestamp_ms)
+        if channel == "book":
+            book_observation = self._normalize_book(
+                raw_message,
+                data,
+                message_type,
+                received_timestamp_ms,
+            )
+            return [book_observation] if book_observation is not None else []
+        return []
+
+    def _normalize_tickers(
+        self,
+        raw_message: dict[str, Any],
+        data: list[Any],
+        received_timestamp_ms: int | None,
+    ) -> list[Observation]:
+        observations: list[Observation] = []
+        for ticker in data:
+            if not isinstance(ticker, dict):
+                continue
+            required_fields = {"bid", "bid_qty", "ask", "ask_qty", "symbol"}
+            if not required_fields <= ticker.keys():
+                continue
+            observations.append(
+                BBOObservation(
+                    exchange=self.exchange,
+                    market=str(ticker["symbol"]),
+                    source_timestamp_ms=self._extract_source_timestamp(ticker),
+                    received_timestamp_ms=received_timestamp_ms,
+                    raw_message=deepcopy(raw_message),
+                    bid_price=parse_decimal(ticker["bid"]),
+                    bid_size=parse_decimal(ticker["bid_qty"]),
+                    ask_price=parse_decimal(ticker["ask"]),
+                    ask_size=parse_decimal(ticker["ask_qty"]),
+                )
+            )
+        return observations
+
+    def _normalize_trades(
+        self,
+        raw_message: dict[str, Any],
+        data: list[Any],
+        received_timestamp_ms: int | None,
+    ) -> list[Observation]:
+        observations: list[Observation] = []
+        for trade in data:
+            if not isinstance(trade, dict):
+                continue
+            side = trade.get("side")
+            if side not in {"buy", "sell"}:
+                continue
+            observations.append(
+                TradeObservation(
+                    exchange=self.exchange,
+                    market=str(trade.get("symbol", "")),
+                    source_timestamp_ms=self._extract_source_timestamp(trade),
+                    received_timestamp_ms=received_timestamp_ms,
+                    raw_message=deepcopy(raw_message),
+                    trade_id=self._coerce_optional_str(trade.get("trade_id")),
+                    side=cast("Any", side),
+                    price=parse_decimal(trade["price"]),
+                    size=parse_decimal(trade["qty"]),
+                )
+            )
+        return observations
+
+    def _normalize_book(
+        self,
+        raw_message: dict[str, Any],
+        data: list[Any],
+        message_type: Any,
+        received_timestamp_ms: int | None,
+    ) -> Observation | None:
+        if len(data) != 1 or not isinstance(data[0], dict):
+            return None
+        book = data[0]
+        levels: list[OrderBookLevel] = []
+        for side_name, key in (("buy", "bids"), ("sell", "asks")):
+            side_levels = book.get(key)
+            if not isinstance(side_levels, list):
+                continue
+            for level in side_levels:
+                if not isinstance(level, dict):
+                    continue
+                levels.append(
+                    OrderBookLevel(
+                        side=cast("Any", side_name),
+                        price=parse_decimal(level["price"]),
+                        size=parse_decimal(level["qty"]),
+                    )
+                )
+
+        market = str(book.get("symbol", ""))
+        source_timestamp_ms = self._extract_source_timestamp(book)
+        raw_message_copy = deepcopy(raw_message)
+        if message_type == "snapshot":
+            return OrderBookObservation(
+                exchange=self.exchange,
+                market=market,
+                source_timestamp_ms=source_timestamp_ms,
+                received_timestamp_ms=received_timestamp_ms,
+                raw_message=raw_message_copy,
+                update_type="snapshot",
+                levels=tuple(levels),
+            )
+        if message_type == "update":
+            return OrderBookDeltaObservation(
+                exchange=self.exchange,
+                market=market,
+                source_timestamp_ms=source_timestamp_ms,
+                received_timestamp_ms=received_timestamp_ms,
+                raw_message=raw_message_copy,
+                levels=tuple(levels),
+            )
+        return None
+
+    @staticmethod
+    def _extract_source_timestamp(payload: dict[str, Any]) -> int | None:
+        timestamp = payload.get("timestamp")
+        if isinstance(timestamp, str):
+            return parse_iso8601_to_ms(timestamp)
+        return None
+
+    @staticmethod
+    def _coerce_optional_str(value: Any) -> str | None:
+        return str(value) if value is not None else None
+
+
+class OkxObservationNormalizer(BaseObservationNormalizer):
+    exchange = "okx"
+
+    def normalize_message(
+        self,
+        raw_message: dict[str, Any],
+        *,
+        received_timestamp_ms: int | None = None,
+    ) -> list[Observation]:
+        arg = raw_message.get("arg")
+        data = raw_message.get("data")
+        if not isinstance(arg, dict) or not isinstance(data, list):
+            return []
+
+        channel = arg.get("channel")
+        if channel == "tickers":
+            return self._normalize_tickers(raw_message, data, received_timestamp_ms)
+        if channel == "trades":
+            return self._normalize_trades(raw_message, data, received_timestamp_ms)
+        if channel == "books5":
+            book_observation = self._normalize_books5(raw_message, data, received_timestamp_ms)
+            return [book_observation] if book_observation is not None else []
+        return []
+
+    def _normalize_tickers(
+        self,
+        raw_message: dict[str, Any],
+        data: list[Any],
+        received_timestamp_ms: int | None,
+    ) -> list[Observation]:
+        observations: list[Observation] = []
+        for ticker in data:
+            if not isinstance(ticker, dict):
+                continue
+            required_fields = {"instId", "bidPx", "bidSz", "askPx", "askSz"}
+            if not required_fields <= ticker.keys():
+                continue
+            observations.append(
+                BBOObservation(
+                    exchange=self.exchange,
+                    market=str(ticker["instId"]),
+                    source_timestamp_ms=self._extract_source_timestamp(ticker),
+                    received_timestamp_ms=received_timestamp_ms,
+                    raw_message=deepcopy(raw_message),
+                    bid_price=parse_decimal(ticker["bidPx"]),
+                    bid_size=parse_decimal(ticker["bidSz"]),
+                    ask_price=parse_decimal(ticker["askPx"]),
+                    ask_size=parse_decimal(ticker["askSz"]),
+                )
+            )
+        return observations
+
+    def _normalize_trades(
+        self,
+        raw_message: dict[str, Any],
+        data: list[Any],
+        received_timestamp_ms: int | None,
+    ) -> list[Observation]:
+        observations: list[Observation] = []
+        for trade in data:
+            if not isinstance(trade, dict):
+                continue
+            side = trade.get("side")
+            if side not in {"buy", "sell"}:
+                continue
+            observations.append(
+                TradeObservation(
+                    exchange=self.exchange,
+                    market=str(trade.get("instId", "")),
+                    source_timestamp_ms=self._extract_source_timestamp(trade),
+                    received_timestamp_ms=received_timestamp_ms,
+                    raw_message=deepcopy(raw_message),
+                    trade_id=self._coerce_optional_str(trade.get("tradeId")),
+                    side=cast("Any", side),
+                    price=parse_decimal(trade["px"]),
+                    size=parse_decimal(trade["sz"]),
+                )
+            )
+        return observations
+
+    def _normalize_books5(
+        self,
+        raw_message: dict[str, Any],
+        data: list[Any],
+        received_timestamp_ms: int | None,
+    ) -> OrderBookObservation | None:
+        if len(data) != 1 or not isinstance(data[0], dict):
+            return None
+
+        book = data[0]
+        # OKX books5 data items don't carry instId — it lives in arg.
+        arg = raw_message.get("arg")
+        inst_id = book.get("instId") or (arg.get("instId", "") if isinstance(arg, dict) else "")
+
+        levels: list[OrderBookLevel] = []
+        for side_name, key in (("buy", "bids"), ("sell", "asks")):
+            side_levels = book.get(key)
+            if not isinstance(side_levels, list):
+                continue
+            for level in side_levels:
+                if not isinstance(level, list | tuple) or len(level) < 2:
+                    continue
+                levels.append(
+                    OrderBookLevel(
+                        side=cast("Any", side_name),
+                        price=parse_decimal(level[0]),
+                        size=parse_decimal(level[1]),
+                    )
+                )
+
+        return OrderBookObservation(
+            exchange=self.exchange,
+            market=str(inst_id),
+            source_timestamp_ms=self._extract_source_timestamp(book),
+            received_timestamp_ms=received_timestamp_ms,
+            raw_message=deepcopy(raw_message),
+            update_type="snapshot",
+            levels=tuple(levels),
+        )
+
+    @staticmethod
+    def _extract_source_timestamp(payload: dict[str, Any]) -> int | None:
+        timestamp = payload.get("ts")
+        if isinstance(timestamp, int):
+            return timestamp
+        if isinstance(timestamp, str) and timestamp.isdigit():
+            return int(timestamp)
+        return None
+
+    @staticmethod
+    def _coerce_optional_str(value: Any) -> str | None:
+        return str(value) if value is not None else None

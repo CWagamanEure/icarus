@@ -23,6 +23,7 @@ from icarus.measurements import MarketMeasurementEngine  # noqa: E402
 from icarus.observations import Observation  # noqa: E402
 from icarus.sockets.coinbase import CoinbaseSocket  # noqa: E402
 from icarus.sockets.hyperliquid import HyperliquidSocket  # noqa: E402
+from icarus.sockets.okx import OkxSocket  # noqa: E402
 from icarus.strategy.fair_value.combiner import (  # noqa: E402
     CrossVenueCombinerConfig,
     CrossVenueFairValueCombiner,
@@ -30,7 +31,8 @@ from icarus.strategy.fair_value.combiner import (  # noqa: E402
 from icarus.strategy.fair_value.estimator import RawFairValueEstimator  # noqa: E402
 from icarus.strategy.fair_value.filters.ema import EMAFairValueFilter  # noqa: E402
 from icarus.strategy.fair_value.filters.kalman_1d import (  # noqa: E402
-    Kalman1DFairValueFilter,
+    AdaptiveEfficientPriceKalman,
+    VenueObservation,
 )
 from icarus.strategy.fair_value.types import VenueFairValueState  # noqa: E402
 from _hyperliquid_spot import resolve_hyperliquid_spot_subscription_coin  # noqa: E402
@@ -43,10 +45,12 @@ if TYPE_CHECKING:
 class MultiVenueEfficientPrice:
     asset: str
     timestamp_ms: int
-    combined_fair_value: Decimal
-    combined_variance: Decimal
+    composite_efficient_price: Decimal
+    filtered_efficient_price: Decimal | None
+    composite_variance: Decimal
     coinbase_fair_value: Decimal | None
     hyperliquid_fair_value: Decimal | None
+    okx_fair_value: Decimal | None
     contributing_exchanges: tuple[str, ...]
 
 
@@ -77,6 +81,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Hyperliquid spot market to resolve and subscribe to.",
     )
     parser.add_argument(
+        "--okx-market",
+        default="BTC-USDT",
+        help="OKX instrument id.",
+    )
+    parser.add_argument(
         "--hyperliquid-subscription-coin",
         default=None,
         help="Optional explicit Hyperliquid subscription coin. If omitted, resolve from spotMeta.",
@@ -99,7 +108,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--filter",
-        choices=["none", "kalman", "ema"],
+        choices=["none", "ema"],
         default="none",
         help="Venue-local fair value filter to apply before combining.",
     )
@@ -108,18 +117,6 @@ def build_parser() -> argparse.ArgumentParser:
         type=parse_decimal_arg,
         default=Decimal("0.2"),
         help="EMA alpha when using --filter ema.",
-    )
-    parser.add_argument(
-        "--kalman-process-variance-per-second",
-        type=float,
-        default=1e-6,
-        help="Kalman process variance per second when using --filter kalman.",
-    )
-    parser.add_argument(
-        "--kalman-initial-variance",
-        type=float,
-        default=1e-4,
-        help="Initial Kalman variance when using --filter kalman.",
     )
     parser.add_argument(
         "--stale-after-ms",
@@ -150,22 +147,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 def build_filter(
     args: argparse.Namespace,
-) -> EMAFairValueFilter | Kalman1DFairValueFilter | None:
+) -> EMAFairValueFilter | None:
     if args.filter == "none":
         return None
-
-    if args.filter == "ema":
-        return EMAFairValueFilter(alpha=args.ema_alpha)
-
-    if args.kalman_process_variance_per_second < 0:
-        raise ValueError("--kalman-process-variance-per-second must be non-negative.")
-    if args.kalman_initial_variance <= 0:
-        raise ValueError("--kalman-initial-variance must be positive.")
-
-    return Kalman1DFairValueFilter(
-        process_variance_per_second=args.kalman_process_variance_per_second,
-        initial_variance=args.kalman_initial_variance,
-    )
+    return EMAFairValueFilter(alpha=args.ema_alpha)
 
 
 async def stream_socket_observations(
@@ -174,6 +159,45 @@ async def stream_socket_observations(
 ) -> None:
     async for observation in socket.stream_observations():  # type: ignore[attr-defined]
         await output_queue.put(observation)
+
+
+def build_venue_state(
+    *,
+    engine: MarketMeasurementEngine,
+    estimator: RawFairValueEstimator,
+    fair_value_filter: EMAFairValueFilter | None,
+    market: str,
+    now_ms: int,
+) -> VenueFairValueState | None:
+    measurement = engine.current_measurement(now_ms)
+    if measurement is None:
+        return None
+
+    raw_estimate = estimator.estimate(measurement)
+    if raw_estimate.raw_fair_value is None or raw_estimate.measurement_variance is None:
+        return None
+
+    if fair_value_filter is None:
+        fair_value = raw_estimate.raw_fair_value
+        variance = raw_estimate.measurement_variance
+    else:
+        fair_value, variance = fair_value_filter.update(
+            measurement=raw_estimate.raw_fair_value,
+            measurement_variance=raw_estimate.measurement_variance,
+            timestamp_ms=raw_estimate.timestamp_ms,
+        )
+
+    return VenueFairValueState(
+        exchange=engine.exchange,
+        market=market,
+        timestamp_ms=(
+            raw_estimate.timestamp_ms - measurement.quote_age_ms
+            if measurement.quote_age_ms is not None
+            else raw_estimate.timestamp_ms
+        ),
+        fair_value=fair_value,
+        variance=variance,
+    )
 
 
 async def run_multi_venue(args: argparse.Namespace) -> None:
@@ -196,6 +220,7 @@ async def run_multi_venue(args: argparse.Namespace) -> None:
             subscription_coin=hyperliquid_subscription_coin,
             testnet=args.testnet,
         ),
+        OkxSocket(args.okx_market),
     ]
 
     tasks = [
@@ -205,7 +230,7 @@ async def run_multi_venue(args: argparse.Namespace) -> None:
 
     measurement_engines: dict[tuple[str, str], MarketMeasurementEngine] = {}
     estimators: dict[tuple[str, str], RawFairValueEstimator] = {}
-    filters: dict[tuple[str, str], EMAFairValueFilter | Kalman1DFairValueFilter | None] = {}
+    filters: dict[tuple[str, str], EMAFairValueFilter | None] = {}
     latest_venue_states: dict[str, VenueFairValueState] = {}
     combiner = CrossVenueFairValueCombiner(
         args.asset,
@@ -214,11 +239,19 @@ async def run_multi_venue(args: argparse.Namespace) -> None:
             age_penalty_per_second=args.age_penalty_per_second,
         ),
     )
+    kalman = AdaptiveEfficientPriceKalman()
 
     count = 0
     try:
         while True:
             observation = await observation_queue.get()
+            now_ms = (
+                observation.received_timestamp_ms
+                if observation.received_timestamp_ms is not None
+                else observation.source_timestamp_ms
+            )
+            if now_ms is None:
+                continue
             engine_key = (observation.exchange, observation.market)
 
             measurement_engine = measurement_engines.get(engine_key)
@@ -229,60 +262,76 @@ async def run_multi_venue(args: argparse.Namespace) -> None:
                 )
                 measurement_engines[engine_key] = measurement_engine
 
-            measurement = measurement_engine.on_observation(observation)
-            if measurement is None:
-                continue
+            measurement_engine.on_observation(observation)
 
-            estimator = estimators.get(engine_key)
-            if estimator is None:
-                estimator = RawFairValueEstimator()
-                estimators[engine_key] = estimator
+            latest_venue_states.clear()
+            for current_engine_key, current_engine in measurement_engines.items():
+                estimator = estimators.get(current_engine_key)
+                if estimator is None:
+                    estimator = RawFairValueEstimator()
+                    estimators[current_engine_key] = estimator
 
-            raw_estimate = estimator.estimate(measurement)
-            if raw_estimate.raw_fair_value is None or raw_estimate.measurement_variance is None:
-                continue
+                if current_engine_key not in filters:
+                    filters[current_engine_key] = build_filter(args)
+                fair_value_filter = filters[current_engine_key]
 
-            fair_value_filter = filters.get(engine_key)
-            if engine_key not in filters:
-                filters[engine_key] = build_filter(args)
-            fair_value_filter = filters[engine_key]
-
-            if fair_value_filter is None:
-                filtered_value = raw_estimate.raw_fair_value
-                filtered_variance = raw_estimate.measurement_variance
-            else:
-                filtered_value, filtered_variance = fair_value_filter.update(
-                    measurement=raw_estimate.raw_fair_value,
-                    measurement_variance=raw_estimate.measurement_variance,
-                    timestamp_ms=raw_estimate.timestamp_ms,
+                venue_state = build_venue_state(
+                    engine=current_engine,
+                    estimator=estimator,
+                    fair_value_filter=fair_value_filter,
+                    market=args.asset,
+                    now_ms=now_ms,
                 )
+                if venue_state is None:
+                    continue
+                latest_venue_states[current_engine.exchange] = venue_state
 
-            venue_state = VenueFairValueState(
-                exchange=observation.exchange,
-                market=args.asset,
-                timestamp_ms=raw_estimate.timestamp_ms,
-                fair_value=filtered_value,
-                variance=filtered_variance,
-            )
-            latest_venue_states[observation.exchange] = venue_state
-            combined = combiner.update(venue_state, now_ms=raw_estimate.timestamp_ms)
+            if not latest_venue_states:
+                continue
+
+            for venue_state in latest_venue_states.values():
+                combiner.update(venue_state, now_ms=now_ms)
+            combined = combiner.combine(now_ms=now_ms)
             if combined is None:
                 continue
 
+            kalman_result = kalman.update(
+                timestamp_s=now_ms / 1000.0,
+                observations=[
+                    VenueObservation(
+                        name=state.exchange,
+                        fair_value=float(state.fair_value),
+                        local_variance=float(state.variance),
+                        age_ms=float(max(now_ms - state.timestamp_ms, 0)),
+                    )
+                    for state in latest_venue_states.values()
+                ],
+            )
+            filtered_price = (
+                Decimal(str(kalman_result.filtered_price))
+                if kalman_result is not None
+                else None
+            )
+
             coinbase_state = latest_venue_states.get("coinbase")
             hyperliquid_state = latest_venue_states.get("hyperliquid")
+            okx_state = latest_venue_states.get("okx")
 
             print(
                 MultiVenueEfficientPrice(
                     asset=args.asset,
                     timestamp_ms=combined.timestamp_ms,
-                    combined_fair_value=combined.fair_value,
-                    combined_variance=combined.variance,
+                    composite_efficient_price=combined.fair_value,
+                    filtered_efficient_price=filtered_price,
+                    composite_variance=combined.variance,
                     coinbase_fair_value=(
                         coinbase_state.fair_value if coinbase_state is not None else None
                     ),
                     hyperliquid_fair_value=(
                         hyperliquid_state.fair_value if hyperliquid_state is not None else None
+                    ),
+                    okx_fair_value=(
+                        okx_state.fair_value if okx_state is not None else None
                     ),
                     contributing_exchanges=combined.contributing_exchanges,
                 )

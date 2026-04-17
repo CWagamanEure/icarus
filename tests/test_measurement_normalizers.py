@@ -7,6 +7,8 @@ from icarus.observations import (
     CandleObservation,
     CoinbaseObservationNormalizer,
     HyperliquidObservationNormalizer,
+    KrakenObservationNormalizer,
+    OkxObservationNormalizer,
     OrderBookDeltaObservation,
     OrderBookObservation,
     TradeObservation,
@@ -248,3 +250,143 @@ def test_hyperliquid_normalizer_emits_measurements() -> None:
     assert candle_measurements[0].interval == "1m"
     assert isinstance(book_measurements[0], OrderBookObservation)
     assert len(book_measurements[0].levels) == 2
+
+
+def test_kraken_normalizer_emits_bbo_trade_and_book_observations() -> None:
+    normalizer = KrakenObservationNormalizer()
+
+    ticker_message = {
+        "channel": "ticker",
+        "type": "snapshot",
+        "data": [
+            {
+                "symbol": "BTC/USD",
+                "bid": 75165.93,
+                "bid_qty": 0.22,
+                "ask": 75165.94,
+                "ask_qty": 0.20,
+                "timestamp": "2026-04-17T00:00:14.957803Z",
+            }
+        ],
+    }
+    trade_message = {
+        "channel": "trade",
+        "type": "update",
+        "data": [
+            {
+                "symbol": "BTC/USD",
+                "side": "buy",
+                "price": 75165.93,
+                "qty": 0.01,
+                "trade_id": 12345,
+                "timestamp": "2026-04-17T00:00:15.000000Z",
+            }
+        ],
+    }
+    book_snapshot_message = {
+        "channel": "book",
+        "type": "snapshot",
+        "data": [
+            {
+                "symbol": "BTC/USD",
+                "bids": [{"price": 75165.93, "qty": 0.22}],
+                "asks": [{"price": 75165.94, "qty": 0.20}],
+                "timestamp": "2026-04-17T00:00:15.100000Z",
+            }
+        ],
+    }
+    book_update_message = {
+        "channel": "book",
+        "type": "update",
+        "data": [
+            {
+                "symbol": "BTC/USD",
+                "bids": [{"price": 75165.94, "qty": 0.50}],
+                "asks": [{"price": 75165.94, "qty": 0}],
+                "timestamp": "2026-04-17T00:00:15.200000Z",
+            }
+        ],
+    }
+
+    ticker_observations = normalizer.normalize_message(ticker_message, received_timestamp_ms=1)
+    trade_observations = normalizer.normalize_message(trade_message, received_timestamp_ms=2)
+    snapshot_observations = normalizer.normalize_message(
+        book_snapshot_message,
+        received_timestamp_ms=3,
+    )
+    update_observations = normalizer.normalize_message(book_update_message, received_timestamp_ms=4)
+
+    assert isinstance(ticker_observations[0], BBOObservation)
+    assert ticker_observations[0].market == "BTC/USD"
+    assert ticker_observations[0].bid_price == Decimal("75165.93")
+
+    assert isinstance(trade_observations[0], TradeObservation)
+    assert trade_observations[0].side == "buy"
+    assert trade_observations[0].trade_id == "12345"
+
+    assert isinstance(snapshot_observations[0], OrderBookObservation)
+    assert snapshot_observations[0].levels[0].side == "buy"
+    assert snapshot_observations[0].levels[1].side == "sell"
+
+    assert isinstance(update_observations[0], OrderBookDeltaObservation)
+    assert update_observations[0].market == "BTC/USD"
+
+
+def test_okx_normalizer_emits_bbo_trade_and_book_observations() -> None:
+    normalizer = OkxObservationNormalizer()
+
+    ticker_message = {
+        "arg": {"channel": "tickers", "instId": "BTC-USDT"},
+        "data": [
+            {
+                "instId": "BTC-USDT",
+                "bidPx": "75165.93",
+                "bidSz": "0.22",
+                "askPx": "75165.94",
+                "askSz": "0.20",
+                "ts": "1776384014957",
+            }
+        ],
+    }
+    trade_message = {
+        "arg": {"channel": "trades", "instId": "BTC-USDT"},
+        "data": [
+            {
+                "instId": "BTC-USDT",
+                "tradeId": "12345",
+                "px": "75165.93",
+                "sz": "0.01",
+                "side": "buy",
+                "ts": "1776384015000",
+            }
+        ],
+    }
+    book_message = {
+        "arg": {"channel": "books5", "instId": "BTC-USDT"},
+        "action": "snapshot",
+        "data": [
+            {
+                "instId": "BTC-USDT",
+                "bids": [["75165.93", "0.22", "0", "1"]],
+                "asks": [["75165.94", "0.20", "0", "1"]],
+                "ts": "1776384015100",
+            }
+        ],
+    }
+
+    ticker_observations = normalizer.normalize_message(ticker_message, received_timestamp_ms=1)
+    trade_observations = normalizer.normalize_message(trade_message, received_timestamp_ms=2)
+    book_observations = normalizer.normalize_message(book_message, received_timestamp_ms=3)
+
+    assert isinstance(ticker_observations[0], BBOObservation)
+    assert ticker_observations[0].market == "BTC-USDT"
+    assert ticker_observations[0].bid_price == Decimal("75165.93")
+
+    assert isinstance(trade_observations[0], TradeObservation)
+    assert trade_observations[0].trade_id == "12345"
+    assert trade_observations[0].side == "buy"
+
+    assert isinstance(book_observations[0], OrderBookObservation)
+    assert book_observations[0].market == "BTC-USDT"
+    assert book_observations[0].levels[0].side == "buy"
+    assert book_observations[0].levels[1].side == "sell"

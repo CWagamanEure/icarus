@@ -22,6 +22,14 @@ class OrderBook:
         for level in levels:
             self.apply_level(level.side, level.price, level.size)
 
+    def truncate(self, depth: int) -> None:
+        if depth <= 0:
+            self._bids.clear()
+            self._asks.clear()
+            return
+        self._bids = dict(sorted(self._bids.items(), reverse=True)[:depth])
+        self._asks = dict(sorted(self._asks.items())[:depth])
+
     def apply_level(self, side: str, price: Decimal, size: Decimal) -> None:
         book_side = self._bids if side == "buy" else self._asks
         if size <= 0:

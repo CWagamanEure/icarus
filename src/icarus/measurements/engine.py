@@ -67,6 +67,15 @@ class MarketMeasurementEngine:
         if isinstance(observation, OrderBookDeltaObservation):
             return None
 
+        return self.current_measurement(timestamp_ms)
+
+    def current_measurement(self, timestamp_ms: int) -> MarketMeasurement | None:
+        if self._state.last_quote_observation is None:
+            return None
+
+        self._prune_old_points(self._state.recent_midpoints, timestamp_ms)
+        self._prune_old_points(self._state.recent_microprices, timestamp_ms)
+
         current_quote = self._state.last_quote_observation
         midprice = current_quote.midprice
         microprice = current_quote.microprice

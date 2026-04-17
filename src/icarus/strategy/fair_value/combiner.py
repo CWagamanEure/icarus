@@ -8,8 +8,10 @@ from .types import CombinedFairValueEstimate, VenueFairValueState
 
 @dataclass(frozen=True, slots=True)
 class CrossVenueCombinerConfig:
-    stale_after_ms: int = 500
+    stale_after_ms: int = 2000
     age_penalty_per_second: Decimal = Decimal("1")
+    disagreement_scale: Decimal = Decimal("1")
+    variance_floor: Decimal = Decimal("0.01")
 
 
 class CrossVenueFairValueCombiner:
@@ -33,10 +35,7 @@ class CrossVenueFairValueCombiner:
         return self.combine(now_ms=now_ms if now_ms is not None else state.timestamp_ms)
 
     def combine(self, *, now_ms: int) -> CombinedFairValueEstimate | None:
-        weighted_value_sum = Decimal("0")
-        weight_sum = Decimal("0")
-        contributing_exchanges: list[str] = []
-        latest_timestamp_ms = 0
+        live_states: list[tuple[VenueFairValueState, Decimal]] = []
 
         for state in self._states.values():
             age_ms = now_ms - state.timestamp_ms
@@ -49,21 +48,62 @@ class CrossVenueFairValueCombiner:
             if effective_variance <= 0:
                 continue
 
-            weight = Decimal("1") / effective_variance
-            weighted_value_sum += state.fair_value * weight
-            weight_sum += weight
-            contributing_exchanges.append(state.exchange)
-            latest_timestamp_ms = max(latest_timestamp_ms, state.timestamp_ms)
+            live_states.append((state, effective_variance))
 
-        if weight_sum <= 0 or not contributing_exchanges:
+        if not live_states:
             return None
+
+        raw_weights: list[Decimal] = []
+        fair_values: list[Decimal] = []
+        variances: list[Decimal] = []
+        exchanges: list[str] = []
+
+        for state, effective_variance in live_states:
+            effective_std = effective_variance.sqrt()
+            if effective_std <= 0:
+                continue
+
+            weight = Decimal("1") / effective_std
+            raw_weights.append(weight)
+            fair_values.append(state.fair_value)
+            variances.append(effective_variance)
+            exchanges.append(state.exchange)
+
+        if not raw_weights:
+            return None
+
+        weight_sum = sum(raw_weights)
+        if weight_sum <= 0:
+            return None
+
+        normalized_weights = [w / weight_sum for w in raw_weights]
+
+        combined_fv = sum(
+            w * fv for w, fv in zip(normalized_weights, fair_values)
+        )
+
+        intrinsic_variance = sum(
+            (w * w) * v for w, v in zip(normalized_weights, variances)
+        )
+
+        disagreement_variance = sum(
+            w * ((fv - combined_fv) ** 2)
+            for w, fv in zip(normalized_weights, fair_values)
+        )
+
+        combined_variance = intrinsic_variance + (
+            self.config.disagreement_scale * disagreement_variance
+        )
+
+        if combined_variance < self.config.variance_floor:
+            combined_variance = self.config.variance_floor
 
         return CombinedFairValueEstimate(
             market=self.market,
-            timestamp_ms=latest_timestamp_ms,
-            fair_value=weighted_value_sum / weight_sum,
-            variance=Decimal("1") / weight_sum,
-            contributing_exchanges=tuple(sorted(contributing_exchanges)),
+            timestamp_ms=now_ms,
+            fair_value=combined_fv,
+            variance=combined_variance,
+            contributing_exchanges=tuple(sorted(exchanges)),
         )
 
     def _effective_variance(self, variance: Decimal, age_ms: int) -> Decimal:
@@ -71,4 +111,7 @@ class CrossVenueFairValueCombiner:
             return Decimal("0")
 
         age_seconds = Decimal(age_ms) / Decimal("1000")
-        return variance * (Decimal("1") + (self.config.age_penalty_per_second * age_seconds))
+        age_multiplier = Decimal("1") + (
+            self.config.age_penalty_per_second * age_seconds
+        )
+        return variance * age_multiplier

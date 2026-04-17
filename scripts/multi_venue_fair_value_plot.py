@@ -27,6 +27,7 @@ from icarus.measurements import MarketMeasurementEngine  # noqa: E402
 from icarus.observations import Observation  # noqa: E402
 from icarus.sockets.coinbase import CoinbaseSocket  # noqa: E402
 from icarus.sockets.hyperliquid import HyperliquidSocket  # noqa: E402
+from icarus.sockets.okx import OkxSocket  # noqa: E402
 from icarus.strategy.fair_value.combiner import (  # noqa: E402
     CrossVenueCombinerConfig,
     CrossVenueFairValueCombiner,
@@ -34,7 +35,8 @@ from icarus.strategy.fair_value.combiner import (  # noqa: E402
 from icarus.strategy.fair_value.estimator import RawFairValueEstimator  # noqa: E402
 from icarus.strategy.fair_value.filters.ema import EMAFairValueFilter  # noqa: E402
 from icarus.strategy.fair_value.filters.kalman_1d import (  # noqa: E402
-    Kalman1DFairValueFilter,
+    AdaptiveEfficientPriceKalman,
+    VenueObservation,
 )
 from icarus.strategy.fair_value.types import VenueFairValueState  # noqa: E402
 from _hyperliquid_spot import resolve_hyperliquid_spot_subscription_coin  # noqa: E402
@@ -46,9 +48,12 @@ if TYPE_CHECKING:
 @dataclass(frozen=True, slots=True)
 class PlotPoint:
     timestamp_ms: int
-    combined_fair_value: float
+    composite_efficient_price: float
+    filtered_efficient_price: float | None
     coinbase_fair_value: float | None
     hyperliquid_fair_value: float | None
+    okx_fair_value: float | None
+    diagnostics_lines: tuple[str, ...]
 
 
 def parse_decimal_arg(value: str) -> Decimal:
@@ -69,6 +74,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="BTC/USDC",
         help="Hyperliquid spot market to resolve and subscribe to.",
     )
+    parser.add_argument("--okx-market", default="BTC-USDT", help="OKX instrument id.")
     parser.add_argument(
         "--hyperliquid-subscription-coin",
         default=None,
@@ -84,7 +90,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--testnet", action="store_true", help="Use Hyperliquid testnet websocket.")
     parser.add_argument(
         "--filter",
-        choices=["none", "kalman", "ema"],
+        choices=["none", "ema"],
         default="none",
         help="Venue-local fair value filter to apply before combining.",
     )
@@ -93,18 +99,6 @@ def build_parser() -> argparse.ArgumentParser:
         type=parse_decimal_arg,
         default=Decimal("0.2"),
         help="EMA alpha when using --filter ema.",
-    )
-    parser.add_argument(
-        "--kalman-process-variance-per-second",
-        type=float,
-        default=1e-6,
-        help="Kalman process variance per second when using --filter kalman.",
-    )
-    parser.add_argument(
-        "--kalman-initial-variance",
-        type=float,
-        default=1e-4,
-        help="Initial Kalman variance when using --filter kalman.",
     )
     parser.add_argument(
         "--stale-after-ms",
@@ -132,22 +126,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 def build_filter(
     args: argparse.Namespace,
-) -> EMAFairValueFilter | Kalman1DFairValueFilter | None:
+) -> EMAFairValueFilter | None:
     if args.filter == "none":
         return None
-
-    if args.filter == "ema":
-        return EMAFairValueFilter(alpha=args.ema_alpha)
-
-    if args.kalman_process_variance_per_second < 0:
-        raise ValueError("--kalman-process-variance-per-second must be non-negative.")
-    if args.kalman_initial_variance <= 0:
-        raise ValueError("--kalman-initial-variance must be positive.")
-
-    return Kalman1DFairValueFilter(
-        process_variance_per_second=args.kalman_process_variance_per_second,
-        initial_variance=args.kalman_initial_variance,
-    )
+    return EMAFairValueFilter(alpha=args.ema_alpha)
 
 
 async def stream_socket_observations(
@@ -156,6 +138,101 @@ async def stream_socket_observations(
 ) -> None:
     async for observation in socket.stream_observations():  # type: ignore[attr-defined]
         await output_queue.put(observation)
+
+
+def build_venue_state(
+    *,
+    engine: MarketMeasurementEngine,
+    estimator: RawFairValueEstimator,
+    fair_value_filter: EMAFairValueFilter | None,
+    market: str,
+    now_ms: int,
+) -> VenueFairValueState | None:
+    measurement = engine.current_measurement(now_ms)
+    if measurement is None:
+        return None
+
+    raw_estimate = estimator.estimate(measurement)
+    if raw_estimate.raw_fair_value is None or raw_estimate.measurement_variance is None:
+        return None
+
+    if fair_value_filter is None:
+        fair_value = raw_estimate.raw_fair_value
+        variance = raw_estimate.measurement_variance
+    else:
+        fair_value, variance = fair_value_filter.update(
+            measurement=raw_estimate.raw_fair_value,
+            measurement_variance=raw_estimate.measurement_variance,
+            timestamp_ms=raw_estimate.timestamp_ms,
+        )
+
+    return VenueFairValueState(
+        exchange=engine.exchange,
+        market=market,
+        timestamp_ms=(
+            raw_estimate.timestamp_ms - measurement.quote_age_ms
+            if measurement.quote_age_ms is not None
+            else raw_estimate.timestamp_ms
+        ),
+        fair_value=fair_value,
+        variance=variance,
+    )
+
+
+def build_diagnostics_text(
+    *,
+    venue_states: dict[str, VenueFairValueState],
+    combiner: CrossVenueFairValueCombiner,
+    now_ms: int,
+) -> tuple[str, ...]:
+    rows: list[str] = []
+    weighted: list[tuple[str, Decimal, int, Decimal]] = []
+
+    for exchange in ("coinbase", "hyperliquid", "okx"):
+        state = venue_states.get(exchange)
+        if state is None:
+            rows.append(f"{exchange:<11} px=-- age=-- var=-- eff=-- w=--")
+            continue
+        age_ms = max(now_ms - state.timestamp_ms, 0)
+        if age_ms > combiner.config.stale_after_ms:
+            rows.append(
+                f"{exchange:<11} px={float(state.fair_value):>9.2f} age={age_ms:>4}ms stale"
+            )
+            continue
+
+        effective_variance = combiner._effective_variance(state.variance, age_ms)
+        if effective_variance <= 0:
+            rows.append(
+                f"{exchange:<11} px={float(state.fair_value):>9.2f} "
+                f"age={age_ms:>4}ms var={float(state.variance):>8.2e} dropped"
+            )
+            continue
+
+        weight = Decimal("1") / effective_variance
+        weighted.append((exchange, weight, age_ms, effective_variance))
+
+    weight_sum = sum((weight for _, weight, _, _ in weighted), start=Decimal("0"))
+    weight_by_exchange = {
+        exchange: (weight / weight_sum if weight_sum > 0 else Decimal("0"))
+        for exchange, weight, _, _ in weighted
+    }
+
+    for exchange in ("coinbase", "hyperliquid", "okx"):
+        state = venue_states.get(exchange)
+        if state is None:
+            continue
+        age_ms = max(now_ms - state.timestamp_ms, 0)
+        effective_variance = combiner._effective_variance(state.variance, age_ms)
+        norm_weight = weight_by_exchange.get(exchange)
+        if norm_weight is None:
+            continue
+        rows.append(
+            f"{exchange:<11} px={float(state.fair_value):>9.2f} age={age_ms:>4}ms "
+            f"var={float(state.variance):>8.2e} eff={float(effective_variance):>8.2e} "
+            f"w={float(norm_weight):>6.1%}"
+        )
+
+    return tuple(rows)
 
 
 async def stream_plot_points(
@@ -182,6 +259,7 @@ async def stream_plot_points(
             subscription_coin=hyperliquid_subscription_coin,
             testnet=args.testnet,
         ),
+        OkxSocket(args.okx_market),
     ]
     tasks = [
         asyncio.create_task(stream_socket_observations(socket, observation_queue))
@@ -190,7 +268,7 @@ async def stream_plot_points(
 
     measurement_engines: dict[tuple[str, str], MarketMeasurementEngine] = {}
     estimators: dict[tuple[str, str], RawFairValueEstimator] = {}
-    filters: dict[tuple[str, str], EMAFairValueFilter | Kalman1DFairValueFilter | None] = {}
+    filters: dict[tuple[str, str], EMAFairValueFilter | None] = {}
     latest_venue_states: dict[str, VenueFairValueState] = {}
     combiner = CrossVenueFairValueCombiner(
         args.asset,
@@ -199,10 +277,18 @@ async def stream_plot_points(
             age_penalty_per_second=args.age_penalty_per_second,
         ),
     )
+    kalman = AdaptiveEfficientPriceKalman()
 
     try:
         while not stop_event.is_set():
             observation = await observation_queue.get()
+            now_ms = (
+                observation.received_timestamp_ms
+                if observation.received_timestamp_ms is not None
+                else observation.source_timestamp_ms
+            )
+            if now_ms is None:
+                continue
             engine_key = (observation.exchange, observation.market)
 
             measurement_engine = measurement_engines.get(engine_key)
@@ -213,51 +299,63 @@ async def stream_plot_points(
                 )
                 measurement_engines[engine_key] = measurement_engine
 
-            measurement = measurement_engine.on_observation(observation)
-            if measurement is None:
-                continue
+            measurement_engine.on_observation(observation)
 
-            estimator = estimators.get(engine_key)
-            if estimator is None:
-                estimator = RawFairValueEstimator()
-                estimators[engine_key] = estimator
+            latest_venue_states.clear()
+            for current_engine_key, current_engine in measurement_engines.items():
+                estimator = estimators.get(current_engine_key)
+                if estimator is None:
+                    estimator = RawFairValueEstimator()
+                    estimators[current_engine_key] = estimator
 
-            raw_estimate = estimator.estimate(measurement)
-            if raw_estimate.raw_fair_value is None or raw_estimate.measurement_variance is None:
-                continue
+                if current_engine_key not in filters:
+                    filters[current_engine_key] = build_filter(args)
+                fair_value_filter = filters[current_engine_key]
 
-            if engine_key not in filters:
-                filters[engine_key] = build_filter(args)
-            fair_value_filter = filters[engine_key]
-
-            if fair_value_filter is None:
-                filtered_value = raw_estimate.raw_fair_value
-                filtered_variance = raw_estimate.measurement_variance
-            else:
-                filtered_value, filtered_variance = fair_value_filter.update(
-                    measurement=raw_estimate.raw_fair_value,
-                    measurement_variance=raw_estimate.measurement_variance,
-                    timestamp_ms=raw_estimate.timestamp_ms,
+                venue_state = build_venue_state(
+                    engine=current_engine,
+                    estimator=estimator,
+                    fair_value_filter=fair_value_filter,
+                    market=args.asset,
+                    now_ms=now_ms,
                 )
+                if venue_state is None:
+                    continue
+                latest_venue_states[current_engine.exchange] = venue_state
 
-            venue_state = VenueFairValueState(
-                exchange=observation.exchange,
-                market=args.asset,
-                timestamp_ms=raw_estimate.timestamp_ms,
-                fair_value=filtered_value,
-                variance=filtered_variance,
-            )
-            latest_venue_states[observation.exchange] = venue_state
-            combined = combiner.update(venue_state, now_ms=raw_estimate.timestamp_ms)
+            if not latest_venue_states:
+                continue
+
+            for venue_state in latest_venue_states.values():
+                combiner.update(venue_state, now_ms=now_ms)
+            combined = combiner.combine(now_ms=now_ms)
             if combined is None:
                 continue
 
+            kalman_result = kalman.update(
+                timestamp_s=now_ms / 1000.0,
+                observations=[
+                    VenueObservation(
+                        name=state.exchange,
+                        fair_value=float(state.fair_value),
+                        local_variance=float(state.variance),
+                        age_ms=float(max(now_ms - state.timestamp_ms, 0)),
+                    )
+                    for state in latest_venue_states.values()
+                ],
+            )
+            filtered_price = (
+                kalman_result.filtered_price if kalman_result is not None else None
+            )
+
             coinbase_state = latest_venue_states.get("coinbase")
             hyperliquid_state = latest_venue_states.get("hyperliquid")
+            okx_state = latest_venue_states.get("okx")
             output_queue.put(
                 PlotPoint(
                     timestamp_ms=combined.timestamp_ms,
-                    combined_fair_value=float(combined.fair_value),
+                    composite_efficient_price=float(combined.fair_value),
+                    filtered_efficient_price=filtered_price,
                     coinbase_fair_value=(
                         float(coinbase_state.fair_value) if coinbase_state is not None else None
                     ),
@@ -265,6 +363,14 @@ async def stream_plot_points(
                         float(hyperliquid_state.fair_value)
                         if hyperliquid_state is not None
                         else None
+                    ),
+                    okx_fair_value=(
+                        float(okx_state.fair_value) if okx_state is not None else None
+                    ),
+                    diagnostics_lines=build_diagnostics_text(
+                        venue_states=latest_venue_states,
+                        combiner=combiner,
+                        now_ms=now_ms,
                     ),
                 )
             )
@@ -278,8 +384,10 @@ async def stream_plot_points(
 
 class LiveMultiVenuePlot:
     COMBINED_COLOR = "#ff8c42"
+    FILTERED_COLOR = "#ffd700"
     COINBASE_COLOR = "#4ea1ff"
     HYPERLIQUID_COLOR = "#7bd389"
+    OKX_COLOR = "#e06bff"
 
     def __init__(
         self,
@@ -356,11 +464,15 @@ class LiveMultiVenuePlot:
 
         all_values: list[float] = []
         for point in self.points:
-            all_values.append(point.combined_fair_value)
+            all_values.append(point.composite_efficient_price)
+            if point.filtered_efficient_price is not None:
+                all_values.append(point.filtered_efficient_price)
             if point.coinbase_fair_value is not None:
                 all_values.append(point.coinbase_fair_value)
             if point.hyperliquid_fair_value is not None:
                 all_values.append(point.hyperliquid_fair_value)
+            if point.okx_fair_value is not None:
+                all_values.append(point.okx_fair_value)
 
         min_y = min(all_values)
         max_y = max(all_values)
@@ -370,7 +482,7 @@ class LiveMultiVenuePlot:
 
         pad_left = 70
         pad_right = 20
-        pad_top = 20
+        pad_top = 126
         pad_bottom = 50
         plot_width = self.width - pad_left - pad_right
         plot_height = self.height - pad_top - pad_bottom
@@ -405,22 +517,36 @@ class LiveMultiVenuePlot:
         self.canvas.create_line(pad_left, pad_top, pad_left, pad_top + plot_height, fill="#444444")
 
         combined_coords: list[float] = []
+        filtered_coords: list[float] = []
         coinbase_coords: list[float] = []
         hyperliquid_coords: list[float] = []
+        okx_coords: list[float] = []
         for index, point in enumerate(self.points):
             x = x_at(index)
-            combined_coords.extend((x, y_at(point.combined_fair_value)))
+            combined_coords.extend((x, y_at(point.composite_efficient_price)))
+            if point.filtered_efficient_price is not None:
+                filtered_coords.extend((x, y_at(point.filtered_efficient_price)))
             if point.coinbase_fair_value is not None:
                 coinbase_coords.extend((x, y_at(point.coinbase_fair_value)))
             if point.hyperliquid_fair_value is not None:
                 hyperliquid_coords.extend((x, y_at(point.hyperliquid_fair_value)))
+            if point.okx_fair_value is not None:
+                okx_coords.extend((x, y_at(point.okx_fair_value)))
 
         self.canvas.create_line(
             *combined_coords,
             fill=self.COMBINED_COLOR,
-            width=3,
+            width=2,
             smooth=False,
+            dash=(6, 3),
         )
+        if len(filtered_coords) >= 4:
+            self.canvas.create_line(
+                *filtered_coords,
+                fill=self.FILTERED_COLOR,
+                width=3,
+                smooth=False,
+            )
         if len(coinbase_coords) >= 4:
             self.canvas.create_line(
                 *coinbase_coords,
@@ -435,76 +561,78 @@ class LiveMultiVenuePlot:
                 width=2,
                 smooth=False,
             )
+        if len(okx_coords) >= 4:
+            self.canvas.create_line(
+                *okx_coords,
+                fill=self.OKX_COLOR,
+                width=2,
+                smooth=False,
+            )
 
         latest = self.points[-1]
-        self.status_var.set(
-            "Combined: "
-            f"{latest.combined_fair_value:.2f}    "
-            "Coinbase: "
-            f"{latest.coinbase_fair_value:.2f}    "
-            if latest.coinbase_fair_value is not None
-            else "Combined only    "
-            + (
-                "Hyperliquid: "
-                f"{latest.hyperliquid_fair_value:.2f}"
-                if latest.hyperliquid_fair_value is not None
-                else ""
-            )
-        )
+        status_parts = [f"Composite: {latest.composite_efficient_price:.2f}"]
+        if latest.filtered_efficient_price is not None:
+            status_parts.append(f"Filtered: {latest.filtered_efficient_price:.2f}")
+        if latest.coinbase_fair_value is not None:
+            status_parts.append(f"Coinbase: {latest.coinbase_fair_value:.2f}")
+        if latest.hyperliquid_fair_value is not None:
+            status_parts.append(f"Hyperliquid: {latest.hyperliquid_fair_value:.2f}")
+        if latest.okx_fair_value is not None:
+            status_parts.append(f"OKX: {latest.okx_fair_value:.2f}")
+        self.status_var.set("    ".join(status_parts))
 
         legend_y = pad_top + 16
+        legend_items: list[tuple[str, str]] = [
+            (self.FILTERED_COLOR, "Filtered"),
+            (self.COMBINED_COLOR, "Raw Composite"),
+            (self.COINBASE_COLOR, "Coinbase"),
+            (self.HYPERLIQUID_COLOR, "Hyperliquid"),
+            (self.OKX_COLOR, "OKX"),
+        ]
+        legend_x = pad_left
+        for color, label in legend_items:
+            self.canvas.create_rectangle(
+                legend_x, legend_y - 6, legend_x + 18, legend_y + 6,
+                fill=color, outline="",
+            )
+            self.canvas.create_text(
+                legend_x + 26, legend_y, text=label,
+                fill="#dddddd", anchor="w", font=("Helvetica", 11, "bold"),
+            )
+            legend_x += 26 + len(label) * 9 + 20
+        panel_x0 = pad_left
+        panel_y0 = 42
+        panel_x1 = self.width - pad_right
+        panel_y1 = 114
         self.canvas.create_rectangle(
-            pad_left,
-            legend_y - 6,
-            pad_left + 18,
-            legend_y + 6,
-            fill=self.COMBINED_COLOR,
-            outline="",
+            panel_x0,
+            panel_y0,
+            panel_x1,
+            panel_y1,
+            fill="#141414",
+            outline="#2a2a2a",
         )
         self.canvas.create_text(
-            pad_left + 26,
-            legend_y,
-            text="Combined",
+            panel_x0 + 10,
+            panel_y0 + 10,
+            text="Diagnostics",
             fill="#dddddd",
-            anchor="w",
+            anchor="nw",
             font=("Helvetica", 11, "bold"),
         )
-        self.canvas.create_rectangle(
-            pad_left + 140,
-            legend_y - 6,
-            pad_left + 158,
-            legend_y + 6,
-            fill=self.COINBASE_COLOR,
-            outline="",
-        )
-        self.canvas.create_text(
-            pad_left + 166,
-            legend_y,
-            text="Coinbase",
-            fill="#dddddd",
-            anchor="w",
-            font=("Helvetica", 11, "bold"),
-        )
-        self.canvas.create_rectangle(
-            pad_left + 280,
-            legend_y - 6,
-            pad_left + 298,
-            legend_y + 6,
-            fill=self.HYPERLIQUID_COLOR,
-            outline="",
-        )
-        self.canvas.create_text(
-            pad_left + 306,
-            legend_y,
-            text="Hyperliquid",
-            fill="#dddddd",
-            anchor="w",
-            font=("Helvetica", 11, "bold"),
-        )
+        for index, line in enumerate(latest.diagnostics_lines):
+            self.canvas.create_text(
+                panel_x0 + 10,
+                panel_y0 + 28 + index * 16,
+                text=line,
+                fill="#bbbbbb",
+                anchor="nw",
+                font=("Courier", 11),
+            )
         self.canvas.create_text(
             pad_left,
             self.height - 20,
-            text="Live plot of combined multi-venue efficient price and venue-local fair values",
+            text="Live plot of composite multi-venue efficient price and venue-local fair values",
             fill="#dddddd",
             anchor="w",
             font=("Helvetica", 11),
