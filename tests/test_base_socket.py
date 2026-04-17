@@ -30,6 +30,23 @@ class DummySocket(BaseSocket):
         self.after_connect_calls += 1
 
 
+class FailingIteratorWebSocket(DummyWebSocket):
+    def __init__(self, socket: BaseSocket) -> None:
+        super().__init__()
+        self.socket = socket
+        self.iterated = False
+
+    def __aiter__(self) -> FailingIteratorWebSocket:
+        return self
+
+    async def __anext__(self) -> str:
+        if self.iterated:
+            raise StopAsyncIteration
+        self.iterated = True
+        await self.socket.close()
+        raise Exception("socket closed during shutdown")
+
+
 @pytest.mark.asyncio
 async def test_close_closes_active_socket() -> None:
     dummy_ws = DummyWebSocket()
@@ -86,3 +103,26 @@ def test_parse_message_returns_json_object() -> None:
     parsed = socket.parse_message('{"count": 3, "ok": true}')
 
     assert parsed == {"count": 3, "ok": True}
+
+
+@pytest.mark.asyncio
+async def test_stream_messages_does_not_warn_or_sleep_after_close(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    socket = DummySocket()
+    socket.logger.propagate = True
+
+    async def fake_connect() -> None:
+        socket._closed = False
+        socket._ws = FailingIteratorWebSocket(socket)
+
+    async def unexpected_sleep(_: float) -> None:
+        raise AssertionError("stream_messages should not sleep after close()")
+
+    monkeypatch.setattr(socket, "connect", fake_connect)
+    monkeypatch.setattr("asyncio.sleep", unexpected_sleep)
+
+    messages = [message async for message in socket.stream_messages()]
+
+    assert messages == []
+    assert "Socket error for" not in caplog.text

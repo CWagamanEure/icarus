@@ -99,14 +99,15 @@ class BaseSocket(abc.ABC):
             except RuntimeError:
                 raise
             except Exception as exc:  # pragma: no cover - exercised in integration runtime.
-                self.logger.warning(
-                    "Socket error for %s: %s. Reconnecting in %.1fs.",
-                    self.url,
-                    exc,
-                    backoff,
-                )
-                await asyncio.sleep(backoff)
-                backoff = min(backoff * 2, self.max_reconnect_delay)
+                if not self._closed:
+                    self.logger.warning(
+                        "Socket error for %s: %s. Reconnecting in %.1fs.",
+                        self.url,
+                        exc,
+                        backoff,
+                    )
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, self.max_reconnect_delay)
             finally:
                 if self._ws is not None:
                     await self._ws.close()

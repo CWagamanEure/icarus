@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import time
+from collections.abc import AsyncIterator
 from typing import Any
 
+from icarus.observations import HyperliquidObservationNormalizer, Observation
 from icarus.sockets.base import BaseSocket
 
 
@@ -31,6 +34,7 @@ class HyperliquidSocket(BaseSocket):
         self.include_l2_book = include_l2_book
         self.include_bbo = include_bbo
         self.include_active_asset_ctx = include_active_asset_ctx
+        self.observation_normalizer = HyperliquidObservationNormalizer()
 
     async def after_connect(self) -> None:
         for subscription in self.subscriptions():
@@ -62,3 +66,22 @@ class HyperliquidSocket(BaseSocket):
             )
 
         return subscriptions
+
+    def convert_message_to_observations(
+        self,
+        raw_message: dict[str, Any],
+        *,
+        received_timestamp_ms: int | None = None,
+    ) -> list[Observation]:
+        return self.observation_normalizer.normalize_message(
+            raw_message,
+            received_timestamp_ms=received_timestamp_ms,
+        )
+
+    async def stream_observations(self) -> AsyncIterator[Observation]:
+        async for raw_message in self.stream_messages():
+            for observation in self.convert_message_to_observations(
+                raw_message,
+                received_timestamp_ms=time.time_ns() // 1_000_000,
+            ):
+                yield observation
