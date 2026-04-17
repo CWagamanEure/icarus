@@ -1,4 +1,5 @@
 from __future__ import annotations
+# ruff: noqa: I001
 
 from decimal import Decimal
 
@@ -7,6 +8,7 @@ from .types import FairValueFeatures
 
 ZERO = Decimal("0")
 ONE = Decimal("1")
+MAX_MICRO_ALPHA = Decimal("1")
 
 
 def compute_micro_alpha(features: FairValueFeatures) -> Decimal:
@@ -55,16 +57,18 @@ def compute_micro_alpha(features: FairValueFeatures) -> Decimal:
     else:
         depth_factor = Decimal("1")
 
-    alpha = Decimal("0.5") * imbalance * spread_factor * age_factor * depth_factor
+    alpha = ONE * imbalance * spread_factor * age_factor * depth_factor
 
     if alpha < ZERO:
         return ZERO
-    if alpha > Decimal("0.5"):
-        return Decimal("0.5")
+    if alpha > MAX_MICRO_ALPHA:
+        return MAX_MICRO_ALPHA
     return alpha
 
 
-def compute_raw_fair_value(features: FairValueFeatures) -> tuple[Decimal | None, Decimal | None, str]:
+def compute_raw_fair_value(
+    features: FairValueFeatures,
+) -> tuple[Decimal | None, Decimal | None, str]:
     if features.midprice is None and features.microprice is None:
         return None, None, "no_price"
 
