@@ -1,7 +1,8 @@
 from __future__ import annotations
+# ruff: noqa: I001
 
 from dataclasses import dataclass
-from decimal import Decimal 
+from decimal import Decimal
 
 @dataclass(frozen=True, slots=True)
 class FairValueFeatures:
@@ -26,5 +27,23 @@ class RawFairValueEstimate:
     micro_alpha: Decimal | None
     used_midprice: Decimal | None
     used_microprice: Decimal | None
+
+
+@dataclass(frozen=True, slots=True)
+class VenueFairValueState:
+    exchange: str
+    market: str
+    timestamp_ms: int
+    fair_value: Decimal
+    variance: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class CombinedFairValueEstimate:
+    market: str
+    timestamp_ms: int
+    fair_value: Decimal
+    variance: Decimal
+    contributing_exchanges: tuple[str, ...]
 
     
