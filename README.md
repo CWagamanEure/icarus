@@ -1,6 +1,9 @@
 # Icarus
 
-Python project scaffold managed with Poetry.
+## Description
+
+This is a python market making project
+
 
 ## Tooling
 
