@@ -59,11 +59,7 @@ class CrossVenueFairValueCombiner:
         exchanges: list[str] = []
 
         for state, effective_variance in live_states:
-            effective_std = effective_variance.sqrt()
-            if effective_std <= 0:
-                continue
-
-            weight = Decimal("1") / effective_std
+            weight = Decimal("1") / effective_variance
             raw_weights.append(weight)
             fair_values.append(state.fair_value)
             variances.append(effective_variance)

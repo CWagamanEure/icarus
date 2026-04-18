@@ -27,6 +27,29 @@ class FilterResult:
     used_venues: List[str]
 
 
+@dataclass(frozen=True, slots=True)
+class KalmanFilterConfig:
+    """
+    Tunable parameters for AdaptiveEfficientPriceKalman.
+
+    Jumpiness knobs (quick reference):
+      - LOWER q_base_per_sec / q_vol_scale => smoother (less process noise => lower gain).
+      - HIGHER r_floor => smoother (observations trusted less).
+      - HIGHER disagreement_scale => smoother when venues disagree.
+      - LOWER obs_var_ewma_alpha => slower adaptation of volatility estimate.
+    """
+
+    initial_variance: float = 25.0         # P_0 in dollars^2
+    q_base_per_sec: float = 0.05           # baseline process variance per second
+    q_vol_scale: float = 1.0               # multiplies EWMA observed move variance
+    r_floor: float = 0.01                  # minimum R_t
+    local_var_floor: float = 1e-4          # minimum per-venue local variance
+    disagreement_scale: float = 1.0        # inflates R when venues disagree
+    stale_cutoff_ms: float = 750.0         # drop venue obs older than this
+    age_variance_scale: float = 2.0        # quadratic penalty on older venue obs
+    obs_var_ewma_alpha: float = 0.05       # EWMA alpha for process noise proxy
+
+
 class AdaptiveEfficientPriceKalman:
     """
     1D Kalman filter on a fused cross-venue fair value.
@@ -47,28 +70,13 @@ class AdaptiveEfficientPriceKalman:
     def __init__(
         self,
         *,
+        config: KalmanFilterConfig | None = None,
         initial_price: Optional[float] = None,
-        initial_variance: float = 25.0,      # P_0 in dollars^2
-        q_base_per_sec: float = 0.05,        # baseline process variance per second
-        q_vol_scale: float = 1.0,            # multiplies EWMA observed move variance
-        r_floor: float = 0.01,               # minimum R_t
-        local_var_floor: float = 1e-4,       # minimum per-venue local variance
-        disagreement_scale: float = 1.0,     # lambda in formula above
-        stale_cutoff_ms: float = 750.0,      # hard cutoff
-        age_variance_scale: float = 2.0,     # penalize older venue obs
-        obs_var_ewma_alpha: float = 0.05,    # EWMA for process noise proxy
     ) -> None:
-        self.x: Optional[float] = initial_price
-        self.p: float = initial_variance
+        self.config = config or KalmanFilterConfig()
 
-        self.q_base_per_sec = q_base_per_sec
-        self.q_vol_scale = q_vol_scale
-        self.r_floor = r_floor
-        self.local_var_floor = local_var_floor
-        self.disagreement_scale = disagreement_scale
-        self.stale_cutoff_ms = stale_cutoff_ms
-        self.age_variance_scale = age_variance_scale
-        self.obs_var_ewma_alpha = obs_var_ewma_alpha
+        self.x: Optional[float] = initial_price
+        self.p: float = self.config.initial_variance
 
         self.last_timestamp_s: Optional[float] = None
         self.last_raw_fused_price: Optional[float] = None
@@ -140,7 +148,7 @@ class AdaptiveEfficientPriceKalman:
                 continue
             if not math.isfinite(obs.local_variance):
                 continue
-            if obs.age_ms > self.stale_cutoff_ms:
+            if obs.age_ms > self.config.stale_cutoff_ms:
                 continue
             live.append(obs)
         return live
@@ -149,8 +157,9 @@ class AdaptiveEfficientPriceKalman:
         """
         Inflate local variance for stale observations.
         """
-        base_var = max(obs.local_variance, self.local_var_floor)
-        age_factor = 1.0 + self.age_variance_scale * (obs.age_ms / max(self.stale_cutoff_ms, 1.0)) ** 2
+        cfg = self.config
+        base_var = max(obs.local_variance, cfg.local_var_floor)
+        age_factor = 1.0 + cfg.age_variance_scale * (obs.age_ms / max(cfg.stale_cutoff_ms, 1.0)) ** 2
         return base_var * age_factor
 
     def _fuse_observations(
@@ -179,8 +188,8 @@ class AdaptiveEfficientPriceKalman:
         disagreement_var = sum(a * ((obs.fair_value - z_t) ** 2) for a, obs in zip(alphas, live))
 
         r_t = max(
-            self.r_floor,
-            intrinsic_fused_var + self.disagreement_scale * disagreement_var,
+            self.config.r_floor,
+            intrinsic_fused_var + self.config.disagreement_scale * disagreement_var,
         )
 
         weights = {obs.name: a for obs, a in zip(live, alphas)}
@@ -191,12 +200,13 @@ class AdaptiveEfficientPriceKalman:
         Q_t controls how much the latent efficient price is allowed to move.
         Use an EWMA of fused observation moves as a proxy for current market speed.
         """
+        cfg = self.config
         if self.last_raw_fused_price is not None:
             move = raw_fused_price - self.last_raw_fused_price
             move_var_per_sec = (move * move) / max(dt, 1e-3)
 
-            a = self.obs_var_ewma_alpha
+            a = cfg.obs_var_ewma_alpha
             self.obs_move_var_ewma = a * move_var_per_sec + (1.0 - a) * self.obs_move_var_ewma
 
-        q_per_sec = self.q_base_per_sec + self.q_vol_scale * self.obs_move_var_ewma
+        q_per_sec = cfg.q_base_per_sec + cfg.q_vol_scale * self.obs_move_var_ewma
         return max(1e-8, q_per_sec * dt)

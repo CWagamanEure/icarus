@@ -23,6 +23,7 @@ from icarus.measurements import MarketMeasurementEngine  # noqa: E402
 from icarus.observations import Observation  # noqa: E402
 from icarus.sockets.coinbase import CoinbaseSocket  # noqa: E402
 from icarus.sockets.hyperliquid import HyperliquidSocket  # noqa: E402
+from icarus.sockets.kraken import KrakenSocket  # noqa: E402
 from icarus.sockets.okx import OkxSocket  # noqa: E402
 from icarus.strategy.fair_value.combiner import (  # noqa: E402
     CrossVenueCombinerConfig,
@@ -32,6 +33,7 @@ from icarus.strategy.fair_value.estimator import RawFairValueEstimator  # noqa: 
 from icarus.strategy.fair_value.filters.ema import EMAFairValueFilter  # noqa: E402
 from icarus.strategy.fair_value.filters.kalman_1d import (  # noqa: E402
     AdaptiveEfficientPriceKalman,
+    KalmanFilterConfig,
     VenueObservation,
 )
 from icarus.strategy.fair_value.types import VenueFairValueState  # noqa: E402
@@ -51,6 +53,7 @@ class MultiVenueEfficientPrice:
     coinbase_fair_value: Decimal | None
     hyperliquid_fair_value: Decimal | None
     okx_fair_value: Decimal | None
+    kraken_fair_value: Decimal | None
     contributing_exchanges: tuple[str, ...]
 
 
@@ -84,6 +87,26 @@ def build_parser() -> argparse.ArgumentParser:
         "--okx-market",
         default="BTC-USDT",
         help="OKX instrument id.",
+    )
+    parser.add_argument(
+        "--kraken-market",
+        default="BTC/USD",
+        help="Kraken v2 pair symbol.",
+    )
+    parser.add_argument(
+        "--disable-kraken",
+        action="store_true",
+        help="Skip the Kraken venue entirely.",
+    )
+    parser.add_argument(
+        "--disable-hyperliquid",
+        action="store_true",
+        help="Skip the Hyperliquid venue entirely.",
+    )
+    parser.add_argument(
+        "--disable-okx",
+        action="store_true",
+        help="Skip the OKX venue entirely.",
     )
     parser.add_argument(
         "--hyperliquid-subscription-coin",
@@ -121,15 +144,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--stale-after-ms",
         type=int,
-        default=500,
+        default=1500,
         help="Drop venue states older than this many milliseconds.",
     )
     parser.add_argument(
         "--age-penalty-per-second",
         type=parse_decimal_arg,
-        default=Decimal("1"),
-        help="Inflate venue variance by this age penalty per second before combining.",
+        default=Decimal("0.1"),
+        help=(
+            "Inflate venue variance by this age penalty per second before combining. "
+            "Note: variance.py already applies an age-factor to measurement variance, "
+            "so this combiner-level penalty is additive/compounding. Keep small."
+        ),
     )
+    _add_kalman_cli_args(parser)
     parser.add_argument(
         "--limit",
         type=int,
@@ -151,6 +179,79 @@ def build_filter(
     if args.filter == "none":
         return None
     return EMAFairValueFilter(alpha=args.ema_alpha)
+
+
+def _add_kalman_cli_args(parser: argparse.ArgumentParser) -> None:
+    defaults = KalmanFilterConfig()
+    group = parser.add_argument_group("Kalman filter")
+    group.add_argument(
+        "--kalman-initial-variance",
+        type=float,
+        default=defaults.initial_variance,
+        help="Initial posterior variance P_0 (dollars^2).",
+    )
+    group.add_argument(
+        "--kalman-q-base-per-sec",
+        type=float,
+        default=defaults.q_base_per_sec,
+        help="Baseline process variance per second. LOWER => smoother.",
+    )
+    group.add_argument(
+        "--kalman-q-vol-scale",
+        type=float,
+        default=defaults.q_vol_scale,
+        help="Multiplier on EWMA observed-move variance. LOWER => smoother.",
+    )
+    group.add_argument(
+        "--kalman-r-floor",
+        type=float,
+        default=defaults.r_floor,
+        help="Minimum observation variance R_t. HIGHER => smoother.",
+    )
+    group.add_argument(
+        "--kalman-local-var-floor",
+        type=float,
+        default=defaults.local_var_floor,
+        help="Minimum per-venue local variance.",
+    )
+    group.add_argument(
+        "--kalman-disagreement-scale",
+        type=float,
+        default=defaults.disagreement_scale,
+        help="Inflate R_t when venues disagree. HIGHER => smoother on disagreement.",
+    )
+    group.add_argument(
+        "--kalman-stale-cutoff-ms",
+        type=float,
+        default=defaults.stale_cutoff_ms,
+        help="Drop venue observations older than this many ms.",
+    )
+    group.add_argument(
+        "--kalman-age-variance-scale",
+        type=float,
+        default=defaults.age_variance_scale,
+        help="Quadratic penalty applied to older venue observations.",
+    )
+    group.add_argument(
+        "--kalman-obs-var-ewma-alpha",
+        type=float,
+        default=defaults.obs_var_ewma_alpha,
+        help="EWMA alpha for process-noise proxy. LOWER => slower vol adaptation.",
+    )
+
+
+def build_kalman_config(args: argparse.Namespace) -> KalmanFilterConfig:
+    return KalmanFilterConfig(
+        initial_variance=args.kalman_initial_variance,
+        q_base_per_sec=args.kalman_q_base_per_sec,
+        q_vol_scale=args.kalman_q_vol_scale,
+        r_floor=args.kalman_r_floor,
+        local_var_floor=args.kalman_local_var_floor,
+        disagreement_scale=args.kalman_disagreement_scale,
+        stale_cutoff_ms=args.kalman_stale_cutoff_ms,
+        age_variance_scale=args.kalman_age_variance_scale,
+        obs_var_ewma_alpha=args.kalman_obs_var_ewma_alpha,
+    )
 
 
 async def stream_socket_observations(
@@ -202,26 +303,32 @@ def build_venue_state(
 
 async def run_multi_venue(args: argparse.Namespace) -> None:
     observation_queue: asyncio.Queue[Observation] = asyncio.Queue()
-    hyperliquid_subscription_coin = (
-        args.hyperliquid_subscription_coin
-        or resolve_hyperliquid_spot_subscription_coin(
-            args.hyperliquid_market,
-            testnet=args.testnet,
-        )
-    )
     sockets: list[BaseSocket] = [
         CoinbaseSocket(
             args.coinbase_market,
             channels=args.coinbase_channels or ["ticker", "heartbeats", "level2"],
             sandbox=args.sandbox,
         ),
-        HyperliquidSocket(
-            args.hyperliquid_market.split("/", 1)[0],
-            subscription_coin=hyperliquid_subscription_coin,
-            testnet=args.testnet,
-        ),
-        OkxSocket(args.okx_market),
     ]
+    if not args.disable_hyperliquid:
+        hyperliquid_subscription_coin = (
+            args.hyperliquid_subscription_coin
+            or resolve_hyperliquid_spot_subscription_coin(
+                args.hyperliquid_market,
+                testnet=args.testnet,
+            )
+        )
+        sockets.append(
+            HyperliquidSocket(
+                args.hyperliquid_market.split("/", 1)[0],
+                subscription_coin=hyperliquid_subscription_coin,
+                testnet=args.testnet,
+            )
+        )
+    if not args.disable_okx:
+        sockets.append(OkxSocket(args.okx_market))
+    if not args.disable_kraken:
+        sockets.append(KrakenSocket(args.kraken_market))
 
     tasks = [
         asyncio.create_task(stream_socket_observations(socket, observation_queue))
@@ -239,7 +346,7 @@ async def run_multi_venue(args: argparse.Namespace) -> None:
             age_penalty_per_second=args.age_penalty_per_second,
         ),
     )
-    kalman = AdaptiveEfficientPriceKalman()
+    kalman = AdaptiveEfficientPriceKalman(config=build_kalman_config(args))
 
     count = 0
     try:
@@ -316,6 +423,7 @@ async def run_multi_venue(args: argparse.Namespace) -> None:
             coinbase_state = latest_venue_states.get("coinbase")
             hyperliquid_state = latest_venue_states.get("hyperliquid")
             okx_state = latest_venue_states.get("okx")
+            kraken_state = latest_venue_states.get("kraken")
 
             print(
                 MultiVenueEfficientPrice(
@@ -332,6 +440,9 @@ async def run_multi_venue(args: argparse.Namespace) -> None:
                     ),
                     okx_fair_value=(
                         okx_state.fair_value if okx_state is not None else None
+                    ),
+                    kraken_fair_value=(
+                        kraken_state.fair_value if kraken_state is not None else None
                     ),
                     contributing_exchanges=combined.contributing_exchanges,
                 )

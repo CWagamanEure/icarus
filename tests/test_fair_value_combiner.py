@@ -36,7 +36,10 @@ def test_cross_venue_combiner_combines_multiple_fresh_venues() -> None:
     assert first.fair_value == Decimal("100")
     assert second is not None
     assert second.fair_value == Decimal("100.4")
-    assert second.variance == Decimal("0.8")
+    # intrinsic = 0.8^2*1 + 0.2^2*4 = 0.8
+    # disagreement = 0.8*(100-100.4)^2 + 0.2*(102-100.4)^2 = 0.64
+    # combined = 0.8 + 1*0.64 = 1.44
+    assert second.variance == Decimal("1.44")
     assert second.contributing_exchanges == ("coinbase", "hyperliquid")
 
 
@@ -103,4 +106,5 @@ def test_cross_venue_combiner_penalizes_older_venues_without_dropping_them() -> 
     assert combined is not None
     assert combined.fair_value > Decimal("105")
     assert combined.fair_value < Decimal("110")
-    assert combined.variance < Decimal("1")
+    # Variance is inflated by the disagreement term (venues are $10 apart)
+    assert combined.variance > Decimal("1")

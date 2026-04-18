@@ -25,9 +25,6 @@ from icarus.observations import Observation  # noqa: E402
 from icarus.sockets.coinbase import CoinbaseSocket  # noqa: E402
 from icarus.strategy.fair_value.estimator import RawFairValueEstimator  # noqa: E402
 from icarus.strategy.fair_value.filters.ema import EMAFairValueFilter  # noqa: E402
-from icarus.strategy.fair_value.filters.kalman_1d import (  # noqa: E402
-    Kalman1DFairValueFilter,
-)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -64,8 +61,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--filter",
-        choices=["kalman", "ema"],
-        default="kalman",
+        choices=["none", "ema"],
+        default="ema",
         help="Fair value filter to apply to the raw estimate.",
     )
     parser.add_argument(
@@ -73,18 +70,6 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.2,
         help="EMA alpha when using --filter ema.",
-    )
-    parser.add_argument(
-        "--kalman-process-variance-per-second",
-        type=float,
-        default=1e-6,
-        help="Kalman process variance per second when using --filter kalman.",
-    )
-    parser.add_argument(
-        "--kalman-initial-variance",
-        type=float,
-        default=1e-4,
-        help="Initial Kalman variance when using --filter kalman.",
     )
     parser.add_argument(
         "--baseline-ema-alpha",
@@ -121,20 +106,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def build_filter(
     args: argparse.Namespace,
-) -> EMAFairValueFilter | Kalman1DFairValueFilter:
-    if args.filter == "ema":
-        alpha = Decimal(str(args.ema_alpha))
-        return EMAFairValueFilter(alpha=alpha)
-
-    if args.kalman_process_variance_per_second < 0:
-        raise ValueError("--kalman-process-variance-per-second must be non-negative.")
-    if args.kalman_initial_variance <= 0:
-        raise ValueError("--kalman-initial-variance must be positive.")
-
-    return Kalman1DFairValueFilter(
-        process_variance_per_second=args.kalman_process_variance_per_second,
-        initial_variance=args.kalman_initial_variance,
-    )
+) -> EMAFairValueFilter | None:
+    if args.filter == "none":
+        return None
+    alpha = Decimal(str(args.ema_alpha))
+    return EMAFairValueFilter(alpha=alpha)
 
 
 def observation_stream(socket: CoinbaseSocket) -> AsyncIterator[Observation]:
@@ -148,7 +124,7 @@ def observation_stream(socket: CoinbaseSocket) -> AsyncIterator[Observation]:
 async def stream_plot_points(
     *,
     socket: CoinbaseSocket,
-    fair_value_filter: EMAFairValueFilter | Kalman1DFairValueFilter,
+    fair_value_filter: EMAFairValueFilter | None,
     baseline_ema_filter: EMAFairValueFilter,
     output_queue: queue.Queue[PlotPoint],
     stop_event: threading.Event,
@@ -169,11 +145,14 @@ async def stream_plot_points(
             if raw_estimate.raw_fair_value is None or raw_estimate.measurement_variance is None:
                 continue
 
-            filtered_value, filtered_variance = fair_value_filter.update(
-                measurement=raw_estimate.raw_fair_value,
-                measurement_variance=raw_estimate.measurement_variance,
-                timestamp_ms=raw_estimate.timestamp_ms,
-            )
+            if fair_value_filter is not None:
+                filtered_value, _ = fair_value_filter.update(
+                    measurement=raw_estimate.raw_fair_value,
+                    measurement_variance=raw_estimate.measurement_variance,
+                    timestamp_ms=raw_estimate.timestamp_ms,
+                )
+            else:
+                filtered_value = raw_estimate.raw_fair_value
             baseline_ema_value, _ = baseline_ema_filter.update(
                 measurement=raw_estimate.raw_fair_value,
                 measurement_variance=raw_estimate.measurement_variance,

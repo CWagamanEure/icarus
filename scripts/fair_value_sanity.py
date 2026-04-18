@@ -21,9 +21,6 @@ from icarus.measurements import MarketMeasurementEngine  # noqa: E402
 from icarus.observations import Observation  # noqa: E402
 from icarus.strategy.fair_value.estimator import RawFairValueEstimator  # noqa: E402
 from icarus.strategy.fair_value.filters.ema import EMAFairValueFilter  # noqa: E402
-from icarus.strategy.fair_value.filters.kalman_1d import (  # noqa: E402
-    Kalman1DFairValueFilter,
-)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -124,8 +121,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--filter",
-        choices=["kalman", "ema"],
-        default="kalman",
+        choices=["none", "ema"],
+        default="ema",
         help="Fair value filter to apply to the raw estimate.",
     )
     parser.add_argument(
@@ -133,18 +130,6 @@ def build_parser() -> argparse.ArgumentParser:
         type=parse_decimal_arg,
         default=Decimal("0.2"),
         help="EMA alpha when using --filter ema.",
-    )
-    parser.add_argument(
-        "--kalman-process-variance-per-second",
-        type=float,
-        default=1e-6,
-        help="Kalman process variance per second when using --filter kalman.",
-    )
-    parser.add_argument(
-        "--kalman-initial-variance",
-        type=float,
-        default=1e-4,
-        help="Initial Kalman variance when using --filter kalman.",
     )
     parser.add_argument(
         "--limit",
@@ -217,20 +202,17 @@ def observation_stream(socket: BaseSocket) -> AsyncIterator[Observation]:
     return stream()
 
 
-def build_filter(args: argparse.Namespace) -> EMAFairValueFilter | Kalman1DFairValueFilter:
-    if args.filter == "ema":
-        return EMAFairValueFilter(alpha=args.ema_alpha)
-    return Kalman1DFairValueFilter(
-        process_variance_per_second=args.kalman_process_variance_per_second,
-        initial_variance=args.kalman_initial_variance,
-    )
+def build_filter(args: argparse.Namespace) -> EMAFairValueFilter | None:
+    if args.filter == "none":
+        return None
+    return EMAFairValueFilter(alpha=args.ema_alpha)
 
 
 async def stream_fair_values(socket: BaseSocket, args: argparse.Namespace) -> None:
     count = 0
     measurement_engines: dict[tuple[str, str], MarketMeasurementEngine] = {}
     estimators: dict[tuple[str, str], RawFairValueEstimator] = {}
-    filters: dict[tuple[str, str], EMAFairValueFilter | Kalman1DFairValueFilter] = {}
+    filters: dict[tuple[str, str], EMAFairValueFilter | None] = {}
 
     try:
         async for observation in observation_stream(socket):
@@ -257,16 +239,19 @@ async def stream_fair_values(socket: BaseSocket, args: argparse.Namespace) -> No
             if raw_estimate.raw_fair_value is None or raw_estimate.measurement_variance is None:
                 continue
 
-            fair_value_filter = filters.get(engine_key)
-            if fair_value_filter is None:
-                fair_value_filter = build_filter(args)
-                filters[engine_key] = fair_value_filter
+            if engine_key not in filters:
+                filters[engine_key] = build_filter(args)
+            fair_value_filter = filters[engine_key]
 
-            filtered_value, filtered_variance = fair_value_filter.update(
-                measurement=raw_estimate.raw_fair_value,
-                measurement_variance=raw_estimate.measurement_variance,
-                timestamp_ms=raw_estimate.timestamp_ms,
-            )
+            if fair_value_filter is None:
+                filtered_value = raw_estimate.raw_fair_value
+                filtered_variance = raw_estimate.measurement_variance
+            else:
+                filtered_value, filtered_variance = fair_value_filter.update(
+                    measurement=raw_estimate.raw_fair_value,
+                    measurement_variance=raw_estimate.measurement_variance,
+                    timestamp_ms=raw_estimate.timestamp_ms,
+                )
 
             print(
                 FilteredFairValueEstimate(
