@@ -12,7 +12,10 @@ from icarus.strategy.fair_value.types import VenueFairValueState
 def test_cross_venue_combiner_combines_multiple_fresh_venues() -> None:
     combiner = CrossVenueFairValueCombiner(
         "BTC-USD",
-        config=CrossVenueCombinerConfig(age_penalty_per_second=Decimal("0")),
+        config=CrossVenueCombinerConfig(
+            age_penalty_per_second=Decimal("0"),
+            max_venue_weight=Decimal("1"),
+        ),
     )
     venue_a = VenueFairValueState(
         exchange="coinbase",
@@ -108,3 +111,81 @@ def test_cross_venue_combiner_penalizes_older_venues_without_dropping_them() -> 
     assert combined.fair_value < Decimal("110")
     # Variance is inflated by the disagreement term (venues are $10 apart)
     assert combined.variance > Decimal("1")
+
+
+def test_cross_venue_combiner_caps_overweight_venue_and_emits_diagnostics() -> None:
+    combiner = CrossVenueFairValueCombiner(
+        "BTC-USD",
+        config=CrossVenueCombinerConfig(
+            age_penalty_per_second=Decimal("0"),
+            max_venue_weight=Decimal("0.75"),
+        ),
+    )
+
+    combiner.update(
+        VenueFairValueState(
+            exchange="tight",
+            market="BTC-USD",
+            timestamp_ms=1000,
+            fair_value=Decimal("100"),
+            variance=Decimal("0.01"),
+        )
+    )
+    combined = combiner.update(
+        VenueFairValueState(
+            exchange="wide",
+            market="BTC-USD",
+            timestamp_ms=1000,
+            fair_value=Decimal("102"),
+            variance=Decimal("100"),
+        ),
+        now_ms=1000,
+    )
+
+    assert combined is not None
+    assert combined.fair_value == Decimal("100.50")
+
+    diagnostics = combiner.last_diagnostics
+    assert diagnostics is not None
+    assert diagnostics.timestamp_ms == 1000
+    assert len(diagnostics.venues) == 2
+
+    by_exchange = {venue.exchange: venue for venue in diagnostics.venues}
+    tight = by_exchange["tight"]
+    wide = by_exchange["wide"]
+
+    assert tight.base_variance == Decimal("0.01")
+    assert tight.effective_variance == Decimal("0.01")
+    assert tight.raw_weight > Decimal("0.99")
+    assert tight.capped_weight == Decimal("0.75")
+    assert tight.age_ms == 0
+
+    assert wide.base_variance == Decimal("100")
+    assert wide.effective_variance == Decimal("100")
+    assert wide.raw_weight < Decimal("0.01")
+    assert wide.capped_weight == Decimal("0.25")
+    assert wide.age_ms == 0
+
+
+def test_cross_venue_combiner_records_empty_diagnostics_when_all_venues_stale() -> None:
+    combiner = CrossVenueFairValueCombiner(
+        "BTC-USD",
+        config=CrossVenueCombinerConfig(stale_after_ms=50),
+    )
+    combiner.update(
+        VenueFairValueState(
+            exchange="coinbase",
+            market="BTC-USD",
+            timestamp_ms=1000,
+            fair_value=Decimal("100"),
+            variance=Decimal("1"),
+        )
+    )
+
+    combined = combiner.combine(now_ms=1100)
+
+    assert combined is None
+    diagnostics = combiner.last_diagnostics
+    assert diagnostics is not None
+    assert diagnostics.timestamp_ms == 1100
+    assert diagnostics.venues == ()

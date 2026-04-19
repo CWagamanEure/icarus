@@ -71,7 +71,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Plot combined BTC efficient price from Coinbase and Hyperliquid live.",
     )
     parser.add_argument("--asset", default="BTC", help="Canonical asset symbol for output.")
-    parser.add_argument("--coinbase-market", default="BTC-USDT", help="Coinbase product id.")
+    parser.add_argument("--coinbase-market", default="BTC-USD", help="Coinbase product id.")
     parser.add_argument(
         "--hyperliquid-market",
         default="BTC/USDC",
@@ -214,14 +214,48 @@ def _add_kalman_cli_args(parser: argparse.ArgumentParser) -> None:
         help="EWMA alpha for process-noise proxy. LOWER => slower vol adaptation.",
     )
     group.add_argument(
-        "--kalman-venue-innovation-ewma-alpha",
+        "--kalman-max-venue-weight",
         type=float,
-        default=defaults.venue_innovation_ewma_alpha,
+        default=defaults.max_venue_weight,
         help=(
-            "EWMA alpha for per-venue innovation variance. Venues that consistently "
-            "disagree with the composite get additive variance inflation. Set to 0 to "
-            "disable."
+            "Max per-venue normalized weight in the fused observation. "
+            "Prevents any single venue from monopolizing the composite. 1.0 disables."
         ),
+    )
+    group.add_argument(
+        "--kalman-reliability-ewma-lambda",
+        type=float,
+        default=defaults.reliability_ewma_lambda,
+        help=(
+            "EWMA lambda for per-venue reliability score. CLOSER TO 1 => "
+            "slower adaptation. 1.0 disables the reliability update."
+        ),
+    )
+    group.add_argument(
+        "--kalman-reliability-alpha",
+        type=float,
+        default=defaults.reliability_alpha,
+        help=(
+            "How aggressively reliability > 1 inflates base variance. "
+            "R_eff = R_base * (1 + alpha * max(q - 1, 0))."
+        ),
+    )
+    group.add_argument(
+        "--kalman-reliability-z2-clip",
+        type=float,
+        default=defaults.reliability_z2_clip,
+        help="Winsorize clipped z^2 per update (default 25 == 5 sigma).",
+    )
+    group.add_argument(
+        "--kalman-reliability-multiplier-max",
+        type=float,
+        default=defaults.reliability_multiplier_max,
+        help="Max effective-variance multiplier from the reliability inflation.",
+    )
+    group.add_argument(
+        "--kalman-reliability-disable",
+        action="store_true",
+        help="Disable the adaptive venue reliability entirely.",
     )
 
 
@@ -236,7 +270,12 @@ def build_kalman_config(args: argparse.Namespace) -> KalmanFilterConfig:
         stale_cutoff_ms=args.kalman_stale_cutoff_ms,
         age_variance_scale=args.kalman_age_variance_scale,
         obs_var_ewma_alpha=args.kalman_obs_var_ewma_alpha,
-        venue_innovation_ewma_alpha=args.kalman_venue_innovation_ewma_alpha,
+        max_venue_weight=args.kalman_max_venue_weight,
+        reliability_ewma_lambda=args.kalman_reliability_ewma_lambda,
+        reliability_alpha=args.kalman_reliability_alpha,
+        reliability_z2_clip=args.kalman_reliability_z2_clip,
+        reliability_multiplier_max=args.kalman_reliability_multiplier_max,
+        reliability_enabled=not args.kalman_reliability_disable,
     )
 
 

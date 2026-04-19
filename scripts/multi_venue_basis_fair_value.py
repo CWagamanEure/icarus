@@ -31,10 +31,10 @@ from icarus.strategy.fair_value.combiner import (  # noqa: E402
 )
 from icarus.strategy.fair_value.estimator import RawFairValueEstimator  # noqa: E402
 from icarus.strategy.fair_value.filters.ema import EMAFairValueFilter  # noqa: E402
-from icarus.strategy.fair_value.filters.kalman_1d import (  # noqa: E402
-    AdaptiveEfficientPriceKalman,
-    KalmanFilterConfig,
-    VenueObservation,
+from icarus.strategy.fair_value.filters.venue_basis_kalman_filter import (  # noqa: E402
+    VenueBasisKalmanConfig,
+    VenueBasisKalmanFilter,
+    VenueBasisObservation,
 )
 from icarus.strategy.fair_value.types import VenueFairValueState  # noqa: E402
 from _hyperliquid_spot import resolve_hyperliquid_spot_subscription_coin  # noqa: E402
@@ -44,16 +44,17 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True, slots=True)
-class MultiVenueEfficientPrice:
+class MultiVenueBasisEfficientPrice:
     asset: str
     timestamp_ms: int
     composite_efficient_price: Decimal
-    filtered_efficient_price: Decimal | None
+    basis_filtered_common_price: Decimal | None
+    basis_estimate_is_live: bool
     composite_variance: Decimal
-    coinbase_fair_value: Decimal | None
-    hyperliquid_fair_value: Decimal | None
-    okx_fair_value: Decimal | None
-    kraken_fair_value: Decimal | None
+    basis_estimates: dict[str, Decimal]
+    basis_stddevs: dict[str, Decimal]
+    observation_variances: dict[str, Decimal]
+    active_venues: tuple[str, ...]
     contributing_exchanges: tuple[str, ...]
 
 
@@ -66,74 +67,42 @@ def parse_decimal_arg(value: str) -> Decimal:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Print a combined BTC efficient price from Coinbase and Hyperliquid.",
+        description="Run the experimental venue-basis fair-value filter live.",
     )
-    parser.add_argument(
-        "--asset",
-        default="BTC",
-        help="Canonical asset symbol for the combined output.",
-    )
-    parser.add_argument(
-        "--coinbase-market",
-        default="BTC-USD",
-        help="Coinbase product id.",
-    )
+    parser.add_argument("--asset", default="BTC", help="Canonical asset symbol for output.")
+    parser.add_argument("--coinbase-market", default="BTC-USD", help="Coinbase product id.")
     parser.add_argument(
         "--hyperliquid-market",
         default="BTC/USDC",
         help="Hyperliquid spot market to resolve and subscribe to.",
     )
-    parser.add_argument(
-        "--okx-market",
-        default="BTC-USDT",
-        help="OKX instrument id.",
-    )
-    parser.add_argument(
-        "--kraken-market",
-        default="BTC/USDT",
-        help="Kraken v2 pair symbol.",
-    )
-    parser.add_argument(
-        "--disable-kraken",
-        action="store_true",
-        help="Skip the Kraken venue entirely.",
-    )
+    parser.add_argument("--okx-market", default="BTC-USDT", help="OKX instrument id.")
+    parser.add_argument("--kraken-market", default="BTC/USDT", help="Kraken v2 pair symbol.")
+    parser.add_argument("--disable-kraken", action="store_true", help="Skip the Kraken venue.")
     parser.add_argument(
         "--disable-hyperliquid",
         action="store_true",
-        help="Skip the Hyperliquid venue entirely.",
+        help="Skip the Hyperliquid venue.",
     )
-    parser.add_argument(
-        "--disable-okx",
-        action="store_true",
-        help="Skip the OKX venue entirely.",
-    )
+    parser.add_argument("--disable-okx", action="store_true", help="Skip the OKX venue.")
     parser.add_argument(
         "--hyperliquid-subscription-coin",
         default=None,
-        help="Optional explicit Hyperliquid subscription coin. If omitted, resolve from spotMeta.",
+        help="Optional explicit Hyperliquid subscription coin.",
     )
     parser.add_argument(
         "--coinbase-channel",
         action="append",
         dest="coinbase_channels",
-        help="Coinbase channel to subscribe to. Repeat to provide multiple channels.",
+        help="Coinbase channel to subscribe to. Repeat for multiple.",
     )
-    parser.add_argument(
-        "--sandbox",
-        action="store_true",
-        help="Use Coinbase sandbox websocket.",
-    )
-    parser.add_argument(
-        "--testnet",
-        action="store_true",
-        help="Use Hyperliquid testnet websocket.",
-    )
+    parser.add_argument("--sandbox", action="store_true", help="Use Coinbase sandbox websocket.")
+    parser.add_argument("--testnet", action="store_true", help="Use Hyperliquid testnet websocket.")
     parser.add_argument(
         "--filter",
         choices=["none", "ema"],
         default="none",
-        help="Venue-local fair value filter to apply before combining.",
+        help="Venue-local fair value filter to apply before cross-venue filtering.",
     )
     parser.add_argument(
         "--ema-alpha",
@@ -145,24 +114,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--stale-after-ms",
         type=int,
         default=1500,
-        help="Drop venue states older than this many milliseconds.",
+        help="Drop venue states older than this many milliseconds in the combiner.",
     )
     parser.add_argument(
         "--age-penalty-per-second",
         type=parse_decimal_arg,
         default=Decimal("0.1"),
-        help=(
-            "Inflate venue variance by this age penalty per second before combining. "
-            "Note: variance.py already applies an age-factor to measurement variance, "
-            "so this combiner-level penalty is additive/compounding. Keep small."
-        ),
+        help="Combiner-only age penalty used for the printed composite estimate.",
     )
-    _add_kalman_cli_args(parser)
+    _add_basis_filter_args(parser)
     parser.add_argument(
         "--limit",
         type=int,
         default=0,
-        help="Stop after printing this many combined updates. Zero means stream forever.",
+        help="Stop after printing this many updates. Zero means stream forever.",
     )
     parser.add_argument(
         "--log-level",
@@ -173,134 +138,82 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def build_filter(
-    args: argparse.Namespace,
-) -> EMAFairValueFilter | None:
+def build_filter(args: argparse.Namespace) -> EMAFairValueFilter | None:
     if args.filter == "none":
         return None
     return EMAFairValueFilter(alpha=args.ema_alpha)
 
 
-def _add_kalman_cli_args(parser: argparse.ArgumentParser) -> None:
-    defaults = KalmanFilterConfig()
-    group = parser.add_argument_group("Kalman filter")
+def _add_basis_filter_args(parser: argparse.ArgumentParser) -> None:
+    defaults = VenueBasisKalmanConfig(anchor_exchange="coinbase")
+    group = parser.add_argument_group("Experimental venue-basis filter")
     group.add_argument(
-        "--kalman-initial-variance",
-        type=float,
-        default=defaults.initial_variance,
-        help="Initial posterior variance P_0 (dollars^2).",
+        "--basis-anchor-exchange",
+        default=defaults.anchor_exchange,
+        help="Exchange whose basis is fixed to zero for identifiability.",
     )
     group.add_argument(
-        "--kalman-q-base-per-sec",
+        "--basis-common-price-process-var-per-sec",
         type=float,
-        default=defaults.q_base_per_sec,
-        help="Baseline process variance per second. LOWER => smoother.",
+        default=defaults.common_price_process_var_per_sec,
+        help="Random-walk process variance per second for the common price state.",
     )
     group.add_argument(
-        "--kalman-q-vol-scale",
+        "--basis-process-var-per-sec",
         type=float,
-        default=defaults.q_vol_scale,
-        help="Multiplier on EWMA observed-move variance. LOWER => smoother.",
+        default=defaults.default_basis_process_var_per_sec,
+        help="Default process variance per second for non-anchor basis states.",
     )
     group.add_argument(
-        "--kalman-r-floor",
+        "--basis-rho-per-second",
         type=float,
-        default=defaults.r_floor,
-        help="Minimum observation variance R_t. HIGHER => smoother.",
+        default=defaults.default_basis_rho_per_second,
+        help="Default one-second persistence for basis AR(1) states.",
     )
     group.add_argument(
-        "--kalman-local-var-floor",
+        "--basis-initial-common-price-variance",
         type=float,
-        default=defaults.local_var_floor,
-        help="Minimum per-venue local variance.",
+        default=defaults.initial_common_price_variance,
+        help="Initial covariance on the common price state.",
     )
     group.add_argument(
-        "--kalman-disagreement-scale",
+        "--basis-initial-basis-variance",
         type=float,
-        default=defaults.disagreement_scale,
-        help="Inflate R_t when venues disagree. HIGHER => smoother on disagreement.",
+        default=defaults.initial_basis_variance,
+        help="Initial covariance on each non-anchor basis state.",
     )
     group.add_argument(
-        "--kalman-stale-cutoff-ms",
+        "--basis-stale-cutoff-ms",
         type=float,
         default=defaults.stale_cutoff_ms,
-        help="Drop venue observations older than this many ms.",
+        help="Drop venue observations older than this many milliseconds.",
     )
     group.add_argument(
-        "--kalman-age-variance-scale",
+        "--basis-local-var-floor",
         type=float,
-        default=defaults.age_variance_scale,
-        help="Quadratic penalty applied to older venue observations.",
-    )
-    group.add_argument(
-        "--kalman-obs-var-ewma-alpha",
-        type=float,
-        default=defaults.obs_var_ewma_alpha,
-        help="EWMA alpha for process-noise proxy. LOWER => slower vol adaptation.",
-    )
-    group.add_argument(
-        "--kalman-max-venue-weight",
-        type=float,
-        default=defaults.max_venue_weight,
-        help=(
-            "Max per-venue normalized weight in the fused observation. "
-            "Prevents any single venue from monopolizing the composite. 1.0 disables."
-        ),
-    )
-    group.add_argument(
-        "--kalman-reliability-ewma-lambda",
-        type=float,
-        default=defaults.reliability_ewma_lambda,
-        help=(
-            "EWMA lambda for per-venue reliability score. CLOSER TO 1 => "
-            "slower adaptation. 1.0 disables the reliability update."
-        ),
-    )
-    group.add_argument(
-        "--kalman-reliability-alpha",
-        type=float,
-        default=defaults.reliability_alpha,
-        help=(
-            "How aggressively reliability > 1 inflates base variance. "
-            "R_eff = R_base * (1 + alpha * max(q - 1, 0))."
-        ),
-    )
-    group.add_argument(
-        "--kalman-reliability-z2-clip",
-        type=float,
-        default=defaults.reliability_z2_clip,
-        help="Winsorize clipped z^2 per update (default 25 == 5 sigma).",
-    )
-    group.add_argument(
-        "--kalman-reliability-multiplier-max",
-        type=float,
-        default=defaults.reliability_multiplier_max,
-        help="Max effective-variance multiplier from the reliability inflation.",
-    )
-    group.add_argument(
-        "--kalman-reliability-disable",
-        action="store_true",
-        help="Disable the adaptive venue reliability entirely.",
+        default=defaults.local_var_floor,
+        help="Lower bound on per-venue observation variance.",
     )
 
 
-def build_kalman_config(args: argparse.Namespace) -> KalmanFilterConfig:
-    return KalmanFilterConfig(
-        initial_variance=args.kalman_initial_variance,
-        q_base_per_sec=args.kalman_q_base_per_sec,
-        q_vol_scale=args.kalman_q_vol_scale,
-        r_floor=args.kalman_r_floor,
-        local_var_floor=args.kalman_local_var_floor,
-        disagreement_scale=args.kalman_disagreement_scale,
-        stale_cutoff_ms=args.kalman_stale_cutoff_ms,
-        age_variance_scale=args.kalman_age_variance_scale,
-        obs_var_ewma_alpha=args.kalman_obs_var_ewma_alpha,
-        max_venue_weight=args.kalman_max_venue_weight,
-        reliability_ewma_lambda=args.kalman_reliability_ewma_lambda,
-        reliability_alpha=args.kalman_reliability_alpha,
-        reliability_z2_clip=args.kalman_reliability_z2_clip,
-        reliability_multiplier_max=args.kalman_reliability_multiplier_max,
-        reliability_enabled=not args.kalman_reliability_disable,
+def build_basis_filter_config(args: argparse.Namespace) -> VenueBasisKalmanConfig:
+    ordered_venues = ["coinbase"]
+    if not args.disable_hyperliquid:
+        ordered_venues.append("hyperliquid")
+    if not args.disable_okx:
+        ordered_venues.append("okx")
+    if not args.disable_kraken:
+        ordered_venues.append("kraken")
+    return VenueBasisKalmanConfig(
+        anchor_exchange=args.basis_anchor_exchange,
+        venue_order=tuple(ordered_venues),
+        common_price_process_var_per_sec=args.basis_common_price_process_var_per_sec,
+        default_basis_process_var_per_sec=args.basis_process_var_per_sec,
+        default_basis_rho_per_second=args.basis_rho_per_second,
+        initial_common_price_variance=args.basis_initial_common_price_variance,
+        initial_basis_variance=args.basis_initial_basis_variance,
+        stale_cutoff_ms=args.basis_stale_cutoff_ms,
+        local_var_floor=args.basis_local_var_floor,
     )
 
 
@@ -351,7 +264,7 @@ def build_venue_state(
     )
 
 
-async def run_multi_venue(args: argparse.Namespace) -> None:
+async def run_multi_venue_basis(args: argparse.Namespace) -> None:
     observation_queue: asyncio.Queue[Observation] = asyncio.Queue()
     sockets: list[BaseSocket] = [
         CoinbaseSocket(
@@ -396,7 +309,8 @@ async def run_multi_venue(args: argparse.Namespace) -> None:
             age_penalty_per_second=args.age_penalty_per_second,
         ),
     )
-    kalman = AdaptiveEfficientPriceKalman(config=build_kalman_config(args))
+    basis_filter = VenueBasisKalmanFilter(config=build_basis_filter_config(args))
+    last_basis_result = None
 
     count = 0
     try:
@@ -409,8 +323,8 @@ async def run_multi_venue(args: argparse.Namespace) -> None:
             )
             if now_ms is None:
                 continue
-            engine_key = (observation.exchange, observation.market)
 
+            engine_key = (observation.exchange, observation.market)
             measurement_engine = measurement_engines.get(engine_key)
             if measurement_engine is None:
                 measurement_engine = MarketMeasurementEngine(
@@ -452,48 +366,44 @@ async def run_multi_venue(args: argparse.Namespace) -> None:
             if combined is None:
                 continue
 
-            kalman_result = kalman.update(
+            basis_result = basis_filter.update(
                 timestamp_s=now_ms / 1000.0,
                 observations=[
-                    VenueObservation(
+                    VenueBasisObservation(
                         name=state.exchange,
-                        fair_value=float(state.fair_value),
-                        local_variance=float(state.variance),
+                        fair_value=state.fair_value,
+                        local_variance=state.variance,
                         age_ms=float(max(now_ms - state.timestamp_ms, 0)),
                     )
                     for state in latest_venue_states.values()
                 ],
             )
-            filtered_price = (
-                Decimal(str(kalman_result.filtered_price))
-                if kalman_result is not None
-                else None
-            )
-
-            coinbase_state = latest_venue_states.get("coinbase")
-            hyperliquid_state = latest_venue_states.get("hyperliquid")
-            okx_state = latest_venue_states.get("okx")
-            kraken_state = latest_venue_states.get("kraken")
+            if basis_result is not None:
+                last_basis_result = basis_result
+            if last_basis_result is None:
+                continue
 
             print(
-                MultiVenueEfficientPrice(
+                MultiVenueBasisEfficientPrice(
                     asset=args.asset,
                     timestamp_ms=combined.timestamp_ms,
                     composite_efficient_price=combined.fair_value,
-                    filtered_efficient_price=filtered_price,
+                    basis_filtered_common_price=Decimal(str(last_basis_result.common_price)),
+                    basis_estimate_is_live=basis_result is not None,
                     composite_variance=combined.variance,
-                    coinbase_fair_value=(
-                        coinbase_state.fair_value if coinbase_state is not None else None
-                    ),
-                    hyperliquid_fair_value=(
-                        hyperliquid_state.fair_value if hyperliquid_state is not None else None
-                    ),
-                    okx_fair_value=(
-                        okx_state.fair_value if okx_state is not None else None
-                    ),
-                    kraken_fair_value=(
-                        kraken_state.fair_value if kraken_state is not None else None
-                    ),
+                    basis_estimates={
+                        exchange: Decimal(str(value))
+                        for exchange, value in last_basis_result.basis_estimates.items()
+                    },
+                    basis_stddevs={
+                        exchange: Decimal(str(value))
+                        for exchange, value in last_basis_result.basis_stddevs.items()
+                    },
+                    observation_variances={
+                        exchange: Decimal(str(value))
+                        for exchange, value in last_basis_result.observation_variances.items()
+                    },
+                    active_venues=tuple(last_basis_result.active_venues),
                     contributing_exchanges=combined.contributing_exchanges,
                 )
             )
@@ -518,9 +428,9 @@ def main() -> None:
     )
 
     try:
-        asyncio.run(run_multi_venue(args))
-    except ValueError as exc:
-        parser.error(str(exc))
+        asyncio.run(run_multi_venue_basis(args))
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":
