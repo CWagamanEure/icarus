@@ -14,6 +14,12 @@ MIN_VAR = Decimal("1e-10")
 # and pin the cross-venue composite to it even when its price is structurally wrong.
 MIN_NOISE_BPS = Decimal("0.25")
 
+# Reference top-of-book notional (in quote currency). Venues with top-of-book notional
+# below this get quadratic variance inflation. Using notional instead of base-asset
+# quantity makes the penalty scale-invariant across assets and comparable across
+# venues that report depth in different units.
+REFERENCE_TOP_NOTIONAL = Decimal("250000")
+
 
 def compute_measurement_variance(features: FairValueFeatures) -> Decimal | None:
     midprice = features.midprice
@@ -24,7 +30,6 @@ def compute_measurement_variance(features: FairValueFeatures) -> Decimal | None:
     quote_age_ms = Decimal(features.quote_age_ms or 0)
     mid_vol_bps = features.mid_volatility_bps or Decimal("0")
     micro_vol_bps = features.micro_volatility_bps or Decimal("0")
-    imbalance = abs(features.depth_imbalance) if features.depth_imbalance is not None else Decimal("0")
 
     top_depth = (features.top_bid_depth or Decimal("0")) + (features.top_ask_depth or Decimal("0"))
 
@@ -40,15 +45,18 @@ def compute_measurement_variance(features: FairValueFeatures) -> Decimal | None:
     if noise_squared < min_noise_squared:
         noise_squared = min_noise_squared
 
-    # thin book penalty
-    if top_depth <= 0:
-        depth_factor = Decimal("2.0")
-    elif top_depth < Decimal("1"):
-        depth_factor = Decimal("1.75")
-    elif top_depth < Decimal("5"):
-        depth_factor = Decimal("1.3")
-    else:
+    # Thin-book penalty based on top-of-book notional (depth * midprice) rather than
+    # raw base-asset quantity. Quantity alone isn't comparable across assets or across
+    # venues with different depth reporting conventions; notional in the quote currency
+    # is.
+    top_notional = top_depth * midprice
+    if top_notional <= 0:
+        depth_factor = Decimal("10000")
+    elif top_notional >= REFERENCE_TOP_NOTIONAL:
         depth_factor = Decimal("1.0")
+    else:
+        ratio = REFERENCE_TOP_NOTIONAL / top_notional
+        depth_factor = ratio * ratio
 
     # stale quote penalty
     if quote_age_ms <= 100:
@@ -60,12 +68,7 @@ def compute_measurement_variance(features: FairValueFeatures) -> Decimal | None:
     else:
         age_factor = Decimal("2.0")
 
-    # slight confidence boost if imbalance is strong and microprice is informative
-    imbalance_factor = Decimal("1.0") - Decimal("0.2") * imbalance
-    if imbalance_factor < Decimal("0.8"):
-        imbalance_factor = Decimal("0.8")
-
-    variance = noise_squared * depth_factor * age_factor * imbalance_factor * midprice**2
+    variance = noise_squared * depth_factor * age_factor * midprice**2
 
     if variance < MIN_VAR:
         return MIN_VAR

@@ -71,14 +71,14 @@ def build_parser() -> argparse.ArgumentParser:
         description="Plot combined BTC efficient price from Coinbase and Hyperliquid live.",
     )
     parser.add_argument("--asset", default="BTC", help="Canonical asset symbol for output.")
-    parser.add_argument("--coinbase-market", default="BTC-USD", help="Coinbase product id.")
+    parser.add_argument("--coinbase-market", default="BTC-USDT", help="Coinbase product id.")
     parser.add_argument(
         "--hyperliquid-market",
         default="BTC/USDC",
         help="Hyperliquid spot market to resolve and subscribe to.",
     )
     parser.add_argument("--okx-market", default="BTC-USDT", help="OKX instrument id.")
-    parser.add_argument("--kraken-market", default="BTC/USD", help="Kraken v2 pair symbol.")
+    parser.add_argument("--kraken-market", default="BTC/USDT", help="Kraken v2 pair symbol.")
     parser.add_argument(
         "--disable-kraken",
         action="store_true",
@@ -213,6 +213,16 @@ def _add_kalman_cli_args(parser: argparse.ArgumentParser) -> None:
         default=defaults.obs_var_ewma_alpha,
         help="EWMA alpha for process-noise proxy. LOWER => slower vol adaptation.",
     )
+    group.add_argument(
+        "--kalman-venue-innovation-ewma-alpha",
+        type=float,
+        default=defaults.venue_innovation_ewma_alpha,
+        help=(
+            "EWMA alpha for per-venue innovation variance. Venues that consistently "
+            "disagree with the composite get additive variance inflation. Set to 0 to "
+            "disable."
+        ),
+    )
 
 
 def build_kalman_config(args: argparse.Namespace) -> KalmanFilterConfig:
@@ -226,6 +236,7 @@ def build_kalman_config(args: argparse.Namespace) -> KalmanFilterConfig:
         stale_cutoff_ms=args.kalman_stale_cutoff_ms,
         age_variance_scale=args.kalman_age_variance_scale,
         obs_var_ewma_alpha=args.kalman_obs_var_ewma_alpha,
+        venue_innovation_ewma_alpha=args.kalman_venue_innovation_ewma_alpha,
     )
 
 

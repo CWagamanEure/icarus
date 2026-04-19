@@ -48,6 +48,7 @@ class KalmanFilterConfig:
     stale_cutoff_ms: float = 750.0         # drop venue obs older than this
     age_variance_scale: float = 2.0        # quadratic penalty on older venue obs
     obs_var_ewma_alpha: float = 0.05       # EWMA alpha for process noise proxy
+    venue_innovation_ewma_alpha: float = 0.02  # EWMA alpha for per-venue innovation var; 0 disables
 
 
 class AdaptiveEfficientPriceKalman:
@@ -81,6 +82,7 @@ class AdaptiveEfficientPriceKalman:
         self.last_timestamp_s: Optional[float] = None
         self.last_raw_fused_price: Optional[float] = None
         self.obs_move_var_ewma: float = 0.0
+        self._venue_innovation_var: Dict[str, float] = {}
 
     def update(self, timestamp_s: float, observations: List[VenueObservation]) -> Optional[FilterResult]:
         live = self._select_live_observations(observations)
@@ -172,7 +174,14 @@ class AdaptiveEfficientPriceKalman:
             R_t: measurement variance for z_t
             weights: normalized venue weights
         """
-        effective_vars = [self._effective_local_variance(obs) for obs in live]
+        # Base effective variance plus the venue's learned innovation-variance prior.
+        # A venue that consistently disagrees with the cross-venue consensus grows its
+        # EWMA and gets downweighted automatically — no hard-coded venue preferences.
+        effective_vars = [
+            self._effective_local_variance(obs)
+            + self._venue_innovation_var.get(obs.name, 0.0)
+            for obs in live
+        ]
 
         # Inverse-variance weights
         inv_vars = [1.0 / v for v in effective_vars]
@@ -191,6 +200,16 @@ class AdaptiveEfficientPriceKalman:
             self.config.r_floor,
             intrinsic_fused_var + self.config.disagreement_scale * disagreement_var,
         )
+
+        # Update per-venue innovation-variance EWMA using the just-computed z_t.
+        a_innov = self.config.venue_innovation_ewma_alpha
+        if a_innov > 0.0:
+            for obs in live:
+                innov_sq = (obs.fair_value - z_t) ** 2
+                prev = self._venue_innovation_var.get(obs.name, 0.0)
+                self._venue_innovation_var[obs.name] = (
+                    a_innov * innov_sq + (1.0 - a_innov) * prev
+                )
 
         weights = {obs.name: a for obs, a in zip(live, alphas)}
         return z_t, r_t, weights
