@@ -61,6 +61,7 @@ class PlotPoint:
         basis_estimate_is_live: bool,
         coinbase_fair_value: float | None,
         hyperliquid_fair_value: float | None,
+        hyperliquid_perp_fair_value: float | None,
         okx_fair_value: float | None,
         kraken_fair_value: float | None,
         diagnostics_lines: tuple[str, ...],
@@ -71,6 +72,7 @@ class PlotPoint:
         self.basis_estimate_is_live = basis_estimate_is_live
         self.coinbase_fair_value = coinbase_fair_value
         self.hyperliquid_fair_value = hyperliquid_fair_value
+        self.hyperliquid_perp_fair_value = hyperliquid_perp_fair_value
         self.okx_fair_value = okx_fair_value
         self.kraken_fair_value = kraken_fair_value
         self.diagnostics_lines = diagnostics_lines
@@ -91,17 +93,17 @@ def build_diagnostics_text(
         rows.append(
             f"common={basis_common_price:>10.2f} anchor={anchor_exchange} status={status}"
         )
-    for exchange in ("coinbase", "hyperliquid", "okx", "kraken"):
+    for exchange in ("coinbase", "hyperliquid", "hyperliquid_perp", "okx", "kraken"):
         state = venue_states.get(exchange)
         basis = basis_estimates.get(exchange)
         basis_std = basis_stddevs.get(exchange)
         if state is None:
-            rows.append(f"{exchange:<11} px=-- basis=-- std=--")
+            rows.append(f"{exchange:<16} px=-- basis=-- std=--")
             continue
         basis_text = "--" if basis is None else f"{basis:+7.2f}"
         std_text = "--" if basis_std is None else f"{basis_std:>6.2f}"
         rows.append(
-            f"{exchange:<11} px={float(state.fair_value):>9.2f} basis={basis_text} std={std_text}"
+            f"{exchange:<16} px={float(state.fair_value):>9.2f} basis={basis_text} std={std_text}"
         )
     return tuple(rows)
 
@@ -112,12 +114,16 @@ async def stream_plot_points(
     stop_event: threading.Event,
 ) -> None:
     observation_queue: asyncio.Queue[Observation] = asyncio.Queue()
-    sockets: list[BaseSocket] = [
-        CoinbaseSocket(
-            args.coinbase_market,
-            channels=args.coinbase_channels or ["ticker", "heartbeats", "level2"],
-            sandbox=args.sandbox,
-        ),
+    socket_specs: list[tuple[BaseSocket, str | None, str | None]] = [
+        (
+            CoinbaseSocket(
+                args.coinbase_market,
+                channels=args.coinbase_channels or ["ticker", "heartbeats", "level2"],
+                sandbox=args.sandbox,
+            ),
+            None,
+            None,
+        )
     ]
     if not args.disable_hyperliquid:
         hyperliquid_subscription_coin = (
@@ -127,20 +133,45 @@ async def stream_plot_points(
                 testnet=args.testnet,
             )
         )
-        sockets.append(
-            HyperliquidSocket(
-                args.hyperliquid_market.split("/", 1)[0],
-                subscription_coin=hyperliquid_subscription_coin,
-                testnet=args.testnet,
+        socket_specs.append(
+            (
+                HyperliquidSocket(
+                    args.hyperliquid_market.split("/", 1)[0],
+                    subscription_coin=hyperliquid_subscription_coin,
+                    testnet=args.testnet,
+                ),
+                None,
+                None,
+            )
+        )
+    if args.enable_hyperliquid_perp:
+        socket_specs.append(
+            (
+                HyperliquidSocket(
+                    args.hyperliquid_perp_market,
+                    subscription_coin=(
+                        args.hyperliquid_perp_subscription_coin or args.hyperliquid_perp_market
+                    ),
+                    testnet=args.testnet,
+                ),
+                "hyperliquid_perp",
+                f"{args.hyperliquid_perp_market}-PERP",
             )
         )
     if not args.disable_okx:
-        sockets.append(OkxSocket(args.okx_market))
+        socket_specs.append((OkxSocket(args.okx_market), None, None))
     if not args.disable_kraken:
-        sockets.append(KrakenSocket(args.kraken_market))
+        socket_specs.append((KrakenSocket(args.kraken_market), None, None))
     tasks = [
-        asyncio.create_task(stream_socket_observations(socket, observation_queue))
-        for socket in sockets
+        asyncio.create_task(
+            stream_socket_observations(
+                socket,
+                observation_queue,
+                exchange_override=exchange_override,
+                market_override=market_override,
+            )
+        )
+        for socket, exchange_override, market_override in socket_specs
     ]
 
     measurement_engines: dict[tuple[str, str], MarketMeasurementEngine] = {}
@@ -204,7 +235,10 @@ async def stream_plot_points(
             if not latest_venue_states:
                 continue
 
-            for venue_state in latest_venue_states.values():
+            spot_venue_states = [
+                state for state in latest_venue_states.values() if not state.exchange.endswith("_perp")
+            ]
+            for venue_state in spot_venue_states:
                 combiner.update(venue_state, now_ms=now_ms)
             combined = combiner.combine(now_ms=now_ms)
             if combined is None:
@@ -218,6 +252,7 @@ async def stream_plot_points(
                         fair_value=state.fair_value,
                         local_variance=state.variance,
                         age_ms=float(max(now_ms - state.timestamp_ms, 0)),
+                        venue_kind="perp" if state.exchange.endswith("_perp") else "spot",
                     )
                     for state in latest_venue_states.values()
                 ],
@@ -238,6 +273,7 @@ async def stream_plot_points(
 
             coinbase_state = latest_venue_states.get("coinbase")
             hyperliquid_state = latest_venue_states.get("hyperliquid")
+            hyperliquid_perp_state = latest_venue_states.get("hyperliquid_perp")
             okx_state = latest_venue_states.get("okx")
             kraken_state = latest_venue_states.get("kraken")
             output_queue.put(
@@ -251,6 +287,11 @@ async def stream_plot_points(
                     ),
                     hyperliquid_fair_value=(
                         float(hyperliquid_state.fair_value) if hyperliquid_state is not None else None
+                    ),
+                    hyperliquid_perp_fair_value=(
+                        float(hyperliquid_perp_state.fair_value)
+                        if hyperliquid_perp_state is not None
+                        else None
                     ),
                     okx_fair_value=float(okx_state.fair_value) if okx_state is not None else None,
                     kraken_fair_value=(
@@ -270,7 +311,7 @@ async def stream_plot_points(
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
-        for socket in sockets:
+        for socket, _, _ in socket_specs:
             await socket.close()
 
 
@@ -279,6 +320,7 @@ class LiveBasisPlot:
     BASIS_COLOR = "#ffd700"
     COINBASE_COLOR = "#4ea1ff"
     HYPERLIQUID_COLOR = "#7bd389"
+    HYPERLIQUID_PERP_COLOR = "#5ed4c8"
     OKX_COLOR = "#e06bff"
     KRAKEN_COLOR = "#f7b733"
 
@@ -363,6 +405,7 @@ class LiveBasisPlot:
             for value in (
                 point.coinbase_fair_value,
                 point.hyperliquid_fair_value,
+                point.hyperliquid_perp_fair_value,
                 point.okx_fair_value,
                 point.kraken_fair_value,
             ):
@@ -433,6 +476,7 @@ class LiveBasisPlot:
             "basis": [],
             "coinbase": [],
             "hyperliquid": [],
+            "hyperliquid_perp": [],
             "okx": [],
             "kraken": [],
         }
@@ -446,6 +490,8 @@ class LiveBasisPlot:
                 series["coinbase"].extend((x, y_at(point.coinbase_fair_value)))
             if point.hyperliquid_fair_value is not None:
                 series["hyperliquid"].extend((x, y_at(point.hyperliquid_fair_value)))
+            if point.hyperliquid_perp_fair_value is not None:
+                series["hyperliquid_perp"].extend((x, y_at(point.hyperliquid_perp_fair_value)))
             if point.okx_fair_value is not None:
                 series["okx"].extend((x, y_at(point.okx_fair_value)))
             if point.kraken_fair_value is not None:
@@ -457,6 +503,7 @@ class LiveBasisPlot:
         for key, color in (
             ("coinbase", self.COINBASE_COLOR),
             ("hyperliquid", self.HYPERLIQUID_COLOR),
+            ("hyperliquid_perp", self.HYPERLIQUID_PERP_COLOR),
             ("okx", self.OKX_COLOR),
             ("kraken", self.KRAKEN_COLOR),
         ):
@@ -478,6 +525,7 @@ class LiveBasisPlot:
             (self.COMBINED_COLOR, "Raw Composite"),
             (self.COINBASE_COLOR, "Coinbase"),
             (self.HYPERLIQUID_COLOR, "Hyperliquid"),
+            (self.HYPERLIQUID_PERP_COLOR, "Hyperliquid Perp"),
             (self.OKX_COLOR, "OKX"),
             (self.KRAKEN_COLOR, "Kraken"),
         ]

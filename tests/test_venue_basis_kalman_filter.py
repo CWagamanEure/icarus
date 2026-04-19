@@ -17,12 +17,14 @@ def _obs(
     variance: float | Decimal = 1.0,
     *,
     age_ms: float = 0.0,
+    venue_kind: str = "spot",
 ) -> VenueBasisObservation:
     return VenueBasisObservation(
         name=name,
         fair_value=price,
         local_variance=variance,
         age_ms=age_ms,
+        venue_kind=venue_kind,
     )
 
 
@@ -76,6 +78,32 @@ def test_three_venue_layout_is_stable_and_anchor_is_excluded() -> None:
     assert result.basis_state_indices == {"kraken": 1, "okx": 2}
     assert "coinbase" not in result.basis_state_indices
     assert result.basis_estimates["coinbase"] == 0.0
+
+
+def test_perp_basis_layout_is_stable_and_separate_from_spot_basis() -> None:
+    filt = VenueBasisKalmanFilter(
+        config=VenueBasisKalmanConfig(
+            anchor_exchange="coinbase",
+            venue_order=("coinbase", "kraken"),
+            perp_exchange_order=("hyperliquid_perp",),
+        )
+    )
+
+    result = filt.update(
+        0.0,
+        [
+            _obs("kraken", 100.5, 2.0),
+            _obs("coinbase", 100.0, 2.0),
+            _obs("hyperliquid_perp", 101.5, 2.0, venue_kind="perp"),
+        ],
+    )
+
+    assert result is not None
+    assert result.basis_state_indices == {"kraken": 1, "hyperliquid_perp": 2}
+    assert result.basis_state_kinds == {
+        "kraken": "spot",
+        "hyperliquid_perp": "perp",
+    }
 
 
 def test_partial_updates_handle_missing_venues_without_dropping_state() -> None:
@@ -225,6 +253,39 @@ def test_distinguishes_noisy_observations_from_persistent_basis() -> None:
     assert result is not None
     assert abs(result.basis_estimates["noisy"]) < 1.5
     assert result.basis_estimates["shifted"] == pytest.approx(4.0, abs=0.75)
+
+
+def test_persistent_perp_premium_is_learned_as_perp_basis() -> None:
+    filt = VenueBasisKalmanFilter(
+        config=VenueBasisKalmanConfig(
+            anchor_exchange="coinbase",
+            venue_order=("coinbase", "kraken"),
+            perp_exchange_order=("hyperliquid_perp",),
+            common_price_process_var_per_sec=1e-4,
+            default_basis_process_var_per_sec=1e-4,
+            default_basis_rho_per_second=0.999,
+            default_perp_basis_process_var_per_sec=5e-4,
+            default_perp_basis_rho_per_second=0.9995,
+            initial_common_price_variance=4.0,
+            initial_basis_variance=100.0,
+        )
+    )
+
+    result = None
+    for i in range(250):
+        result = filt.update(
+            i * 0.1,
+            [
+                _obs("coinbase", 100.0, 1.0),
+                _obs("kraken", 100.5, 1.0),
+                _obs("hyperliquid_perp", 103.0, 1.0, venue_kind="perp"),
+            ],
+        )
+
+    assert result is not None
+    assert result.common_price == pytest.approx(100.0, abs=1.0)
+    assert result.basis_estimates["kraken"] == pytest.approx(0.5, abs=1.0)
+    assert result.basis_estimates["hyperliquid_perp"] == pytest.approx(3.0, abs=1.0)
 
 
 def test_decimal_inputs_are_deterministic() -> None:

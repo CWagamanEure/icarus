@@ -7,7 +7,7 @@ import argparse
 import asyncio
 import logging
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -91,6 +91,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional explicit Hyperliquid subscription coin.",
     )
     parser.add_argument(
+        "--enable-hyperliquid-perp",
+        action="store_true",
+        help="Add a separate Hyperliquid perp ingestion path to the experimental basis filter.",
+    )
+    parser.add_argument(
+        "--hyperliquid-perp-market",
+        default="BTC",
+        help="Hyperliquid perp market symbol.",
+    )
+    parser.add_argument(
+        "--hyperliquid-perp-subscription-coin",
+        default=None,
+        help="Optional explicit Hyperliquid perp subscription coin.",
+    )
+    parser.add_argument(
         "--coinbase-channel",
         action="append",
         dest="coinbase_channels",
@@ -171,6 +186,18 @@ def _add_basis_filter_args(parser: argparse.ArgumentParser) -> None:
         help="Default one-second persistence for basis AR(1) states.",
     )
     group.add_argument(
+        "--basis-perp-process-var-per-sec",
+        type=float,
+        default=defaults.default_perp_basis_process_var_per_sec,
+        help="Default process variance per second for perp-basis states.",
+    )
+    group.add_argument(
+        "--basis-perp-rho-per-second",
+        type=float,
+        default=defaults.default_perp_basis_rho_per_second,
+        help="Default one-second persistence for perp-basis AR(1) states.",
+    )
+    group.add_argument(
         "--basis-initial-common-price-variance",
         type=float,
         default=defaults.initial_common_price_variance,
@@ -204,12 +231,18 @@ def build_basis_filter_config(args: argparse.Namespace) -> VenueBasisKalmanConfi
         ordered_venues.append("okx")
     if not args.disable_kraken:
         ordered_venues.append("kraken")
+    perp_exchange_order: list[str] = []
+    if args.enable_hyperliquid_perp:
+        perp_exchange_order.append("hyperliquid_perp")
     return VenueBasisKalmanConfig(
         anchor_exchange=args.basis_anchor_exchange,
         venue_order=tuple(ordered_venues),
+        perp_exchange_order=tuple(perp_exchange_order),
         common_price_process_var_per_sec=args.basis_common_price_process_var_per_sec,
         default_basis_process_var_per_sec=args.basis_process_var_per_sec,
         default_basis_rho_per_second=args.basis_rho_per_second,
+        default_perp_basis_process_var_per_sec=args.basis_perp_process_var_per_sec,
+        default_perp_basis_rho_per_second=args.basis_perp_rho_per_second,
         initial_common_price_variance=args.basis_initial_common_price_variance,
         initial_basis_variance=args.basis_initial_basis_variance,
         stale_cutoff_ms=args.basis_stale_cutoff_ms,
@@ -220,9 +253,22 @@ def build_basis_filter_config(args: argparse.Namespace) -> VenueBasisKalmanConfi
 async def stream_socket_observations(
     socket: BaseSocket,
     output_queue: asyncio.Queue[Observation],
+    *,
+    exchange_override: str | None = None,
+    market_override: str | None = None,
 ) -> None:
     async for observation in socket.stream_observations():  # type: ignore[attr-defined]
+        if exchange_override is not None or market_override is not None:
+            observation = replace(
+                observation,
+                exchange=exchange_override or observation.exchange,
+                market=market_override or observation.market,
+            )
         await output_queue.put(observation)
+
+
+def is_perp_exchange(exchange: str) -> bool:
+    return exchange.endswith("_perp")
 
 
 def build_venue_state(
@@ -266,11 +312,15 @@ def build_venue_state(
 
 async def run_multi_venue_basis(args: argparse.Namespace) -> None:
     observation_queue: asyncio.Queue[Observation] = asyncio.Queue()
-    sockets: list[BaseSocket] = [
-        CoinbaseSocket(
-            args.coinbase_market,
-            channels=args.coinbase_channels or ["ticker", "heartbeats", "level2"],
-            sandbox=args.sandbox,
+    sockets: list[tuple[BaseSocket, str | None, str | None]] = [
+        (
+            CoinbaseSocket(
+                args.coinbase_market,
+                channels=args.coinbase_channels or ["ticker", "heartbeats", "level2"],
+                sandbox=args.sandbox,
+            ),
+            None,
+            None,
         ),
     ]
     if not args.disable_hyperliquid:
@@ -282,20 +332,45 @@ async def run_multi_venue_basis(args: argparse.Namespace) -> None:
             )
         )
         sockets.append(
-            HyperliquidSocket(
-                args.hyperliquid_market.split("/", 1)[0],
-                subscription_coin=hyperliquid_subscription_coin,
-                testnet=args.testnet,
+            (
+                HyperliquidSocket(
+                    args.hyperliquid_market.split("/", 1)[0],
+                    subscription_coin=hyperliquid_subscription_coin,
+                    testnet=args.testnet,
+                ),
+                None,
+                None,
+            )
+        )
+    if args.enable_hyperliquid_perp:
+        sockets.append(
+            (
+                HyperliquidSocket(
+                    args.hyperliquid_perp_market,
+                    subscription_coin=(
+                        args.hyperliquid_perp_subscription_coin or args.hyperliquid_perp_market
+                    ),
+                    testnet=args.testnet,
+                ),
+                "hyperliquid_perp",
+                f"{args.hyperliquid_perp_market}-PERP",
             )
         )
     if not args.disable_okx:
-        sockets.append(OkxSocket(args.okx_market))
+        sockets.append((OkxSocket(args.okx_market), None, None))
     if not args.disable_kraken:
-        sockets.append(KrakenSocket(args.kraken_market))
+        sockets.append((KrakenSocket(args.kraken_market), None, None))
 
     tasks = [
-        asyncio.create_task(stream_socket_observations(socket, observation_queue))
-        for socket in sockets
+        asyncio.create_task(
+            stream_socket_observations(
+                socket,
+                observation_queue,
+                exchange_override=exchange_override,
+                market_override=market_override,
+            )
+        )
+        for socket, exchange_override, market_override in sockets
     ]
 
     measurement_engines: dict[tuple[str, str], MarketMeasurementEngine] = {}
@@ -360,7 +435,14 @@ async def run_multi_venue_basis(args: argparse.Namespace) -> None:
             if not latest_venue_states:
                 continue
 
-            for venue_state in latest_venue_states.values():
+            spot_venue_states = [
+                state
+                for state in latest_venue_states.values()
+                if not is_perp_exchange(state.exchange)
+            ]
+            if not spot_venue_states:
+                continue
+            for venue_state in spot_venue_states:
                 combiner.update(venue_state, now_ms=now_ms)
             combined = combiner.combine(now_ms=now_ms)
             if combined is None:
@@ -374,6 +456,7 @@ async def run_multi_venue_basis(args: argparse.Namespace) -> None:
                         fair_value=state.fair_value,
                         local_variance=state.variance,
                         age_ms=float(max(now_ms - state.timestamp_ms, 0)),
+                        venue_kind="perp" if is_perp_exchange(state.exchange) else "spot",
                     )
                     for state in latest_venue_states.values()
                 ],
@@ -414,7 +497,7 @@ async def run_multi_venue_basis(args: argparse.Namespace) -> None:
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
-        for socket in sockets:
+        for socket, _, _ in sockets:
             await socket.close()
 
 
