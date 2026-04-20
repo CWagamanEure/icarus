@@ -23,6 +23,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from multi_venue_basis_fair_value import (  # noqa: E402
+    apply_asset_defaults,
     build_basis_filter_config,
     build_filter,
     build_parser,
@@ -591,6 +592,7 @@ def main() -> None:
     parser.add_argument("--width", type=int, default=1100, help="Window width in pixels.")
     parser.add_argument("--height", type=int, default=700, help="Window height in pixels.")
     args = parser.parse_args()
+    apply_asset_defaults(args)
 
     logging.basicConfig(
         level=getattr(logging, args.log_level),

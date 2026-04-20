@@ -54,6 +54,7 @@ class VenueBasisKalmanConfig:
     venue_order: tuple[str, ...] = ()
     perp_exchange_order: tuple[str, ...] = ()
     require_anchor_observation: bool = True
+    min_live_spot_venues: int = 1
     # The common latent price should be materially more mobile than venue-basis
     # states; otherwise shared market moves get misattributed to basis drift.
     common_price_process_var_per_sec: float = 2.0
@@ -127,8 +128,19 @@ class VenueBasisKalmanFilter:
         live = self._select_live_observations(observations)
         if not live:
             return None
-        if self.config.require_anchor_observation and not any(
-            obs.name == self.config.anchor_exchange for obs in live
+        live_spot_count = sum(1 for obs in live if obs.venue_kind != "perp")
+        if live_spot_count < self.config.min_live_spot_venues:
+            return None
+
+        # The anchor requirement only pins the common price to the anchor's
+        # price space at bootstrap. Once state exists, non-anchor observations
+        # update x_t and b_j jointly through the covariance structure; a
+        # re-arriving anchor tick snaps things back via its Kalman gain.
+        is_bootstrap = self._state is None or self._covariance is None
+        if (
+            is_bootstrap
+            and self.config.require_anchor_observation
+            and not any(obs.name == self.config.anchor_exchange for obs in live)
         ):
             return None
 
@@ -214,6 +226,8 @@ class VenueBasisKalmanFilter:
     def _validate_config(self) -> None:
         if not self.config.anchor_exchange:
             raise ValueError("anchor_exchange must be non-empty.")
+        if self.config.min_live_spot_venues < 1:
+            raise ValueError("min_live_spot_venues must be at least 1.")
         if not (0.0 <= self.config.default_basis_rho_per_second <= 1.0):
             raise ValueError("default_basis_rho_per_second must be in [0, 1].")
         if not (0.0 <= self.config.default_perp_basis_rho_per_second <= 1.0):

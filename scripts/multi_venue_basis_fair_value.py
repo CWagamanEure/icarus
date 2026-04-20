@@ -65,19 +65,63 @@ def parse_decimal_arg(value: str) -> Decimal:
     return parsed
 
 
+def default_markets_for_asset(asset: str) -> dict[str, str]:
+    """Return per-venue market symbols derived from a canonical asset symbol."""
+    asset = asset.upper()
+    return {
+        "coinbase": f"{asset}-USD",
+        "hyperliquid": f"{asset}/USDC",
+        "okx": f"{asset}-USDT",
+        "kraken": f"{asset}/USDT",
+        "hyperliquid_perp": asset,
+    }
+
+
+def apply_asset_defaults(args: argparse.Namespace) -> argparse.Namespace:
+    """Fill market args that were not explicitly set from asset-based defaults."""
+    defaults = default_markets_for_asset(args.asset)
+    if args.coinbase_market is None:
+        args.coinbase_market = defaults["coinbase"]
+    if args.hyperliquid_market is None:
+        args.hyperliquid_market = defaults["hyperliquid"]
+    if args.okx_market is None:
+        args.okx_market = defaults["okx"]
+    if args.kraken_market is None:
+        args.kraken_market = defaults["kraken"]
+    if args.hyperliquid_perp_market is None:
+        args.hyperliquid_perp_market = defaults["hyperliquid_perp"]
+    return args
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run the experimental venue-basis fair-value filter live.",
     )
-    parser.add_argument("--asset", default="BTC", help="Canonical asset symbol for output.")
-    parser.add_argument("--coinbase-market", default="BTC-USD", help="Coinbase product id.")
+    parser.add_argument(
+        "--asset",
+        default="BTC",
+        help="Canonical asset symbol. Drives per-venue market defaults (e.g. ETH, SOL).",
+    )
+    parser.add_argument(
+        "--coinbase-market",
+        default=None,
+        help="Coinbase product id. Defaults to <ASSET>-USD.",
+    )
     parser.add_argument(
         "--hyperliquid-market",
-        default="BTC/USDC",
-        help="Hyperliquid spot market to resolve and subscribe to.",
+        default=None,
+        help="Hyperliquid spot market. Defaults to <ASSET>/USDC.",
     )
-    parser.add_argument("--okx-market", default="BTC-USDT", help="OKX instrument id.")
-    parser.add_argument("--kraken-market", default="BTC/USDT", help="Kraken v2 pair symbol.")
+    parser.add_argument(
+        "--okx-market",
+        default=None,
+        help="OKX instrument id. Defaults to <ASSET>-USDT.",
+    )
+    parser.add_argument(
+        "--kraken-market",
+        default=None,
+        help="Kraken v2 pair symbol. Defaults to <ASSET>/USDT.",
+    )
     parser.add_argument("--disable-kraken", action="store_true", help="Skip the Kraken venue.")
     parser.add_argument(
         "--disable-hyperliquid",
@@ -97,8 +141,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--hyperliquid-perp-market",
-        default="BTC",
-        help="Hyperliquid perp market symbol.",
+        default=None,
+        help="Hyperliquid perp market symbol. Defaults to <ASSET>.",
     )
     parser.add_argument(
         "--hyperliquid-perp-subscription-coin",
@@ -216,6 +260,12 @@ def _add_basis_filter_args(parser: argparse.ArgumentParser) -> None:
         help="Drop venue observations older than this many milliseconds.",
     )
     group.add_argument(
+        "--basis-min-live-spot-venues",
+        type=int,
+        default=defaults.min_live_spot_venues,
+        help="Minimum number of fresh spot venues required before the basis filter emits.",
+    )
+    group.add_argument(
         "--basis-local-var-floor",
         type=float,
         default=defaults.local_var_floor,
@@ -245,6 +295,7 @@ def build_basis_filter_config(args: argparse.Namespace) -> VenueBasisKalmanConfi
         default_perp_basis_rho_per_second=args.basis_perp_rho_per_second,
         initial_common_price_variance=args.basis_initial_common_price_variance,
         initial_basis_variance=args.basis_initial_basis_variance,
+        min_live_spot_venues=args.basis_min_live_spot_venues,
         stale_cutoff_ms=args.basis_stale_cutoff_ms,
         local_var_floor=args.basis_local_var_floor,
     )
@@ -504,6 +555,7 @@ async def run_multi_venue_basis(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
+    apply_asset_defaults(args)
 
     logging.basicConfig(
         level=getattr(logging, args.log_level),

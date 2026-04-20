@@ -21,6 +21,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from multi_venue_basis_fair_value import (  # noqa: E402
+    apply_asset_defaults,
     build_basis_filter_config,
     build_filter,
     build_parser as build_basis_parser,
@@ -412,6 +413,7 @@ async def run_capture(args: argparse.Namespace) -> None:
             )
             if basis_result is not None:
                 last_basis_result = basis_result
+            basis_snapshot = basis_result if basis_result is not None else last_basis_result
 
             db.insert_snapshot(
                 now_ms=now_ms,
@@ -430,24 +432,24 @@ async def run_capture(args: argparse.Namespace) -> None:
                 ),
                 kalman_used_venues=kalman_result.used_venues if kalman_result is not None else [],
                 basis_common_price=(
-                    float(last_basis_result.common_price)
-                    if last_basis_result is not None
+                    float(basis_snapshot.common_price)
+                    if basis_snapshot is not None
                     else None
                 ),
                 basis_common_stddev=(
-                    float(last_basis_result.common_price_stddev)
-                    if last_basis_result is not None
+                    float(basis_snapshot.common_price_stddev)
+                    if basis_snapshot is not None
                     else None
                 ),
                 basis_is_live=basis_result is not None,
                 basis_active_venues=(
-                    last_basis_result.active_venues if last_basis_result is not None else []
+                    basis_snapshot.active_venues if basis_snapshot is not None else []
                 ),
                 basis_estimates=(
-                    last_basis_result.basis_estimates if last_basis_result is not None else {}
+                    basis_snapshot.basis_estimates if basis_snapshot is not None else {}
                 ),
                 basis_stddevs=(
-                    last_basis_result.basis_stddevs if last_basis_result is not None else {}
+                    basis_snapshot.basis_stddevs if basis_snapshot is not None else {}
                 ),
             )
             db.maybe_commit(args.commit_every)
@@ -469,6 +471,7 @@ async def run_capture(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
+    apply_asset_defaults(args)
     logging.basicConfig(
         level=getattr(logging, args.log_level),
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
