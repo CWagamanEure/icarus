@@ -9,7 +9,9 @@ import json
 import logging
 import sqlite3
 import sys
+from collections import deque
 from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -34,7 +36,7 @@ from multi_venue_fair_value import (  # noqa: E402
     build_kalman_config,
 )
 from icarus.measurements import MarketMeasurementEngine  # noqa: E402
-from icarus.observations import Observation  # noqa: E402
+from icarus.observations import Observation, TradeObservation  # noqa: E402
 from icarus.sockets.coinbase import CoinbaseSocket  # noqa: E402
 from icarus.sockets.hyperliquid import HyperliquidSocket  # noqa: E402
 from icarus.sockets.kraken import KrakenSocket  # noqa: E402
@@ -57,6 +59,27 @@ from _hyperliquid_spot import resolve_hyperliquid_spot_subscription_coin  # noqa
 
 if TYPE_CHECKING:
     from icarus.sockets.base import BaseSocket
+
+
+class TradeFlowTracker:
+    """Per-venue rolling window of taker flow."""
+
+    def __init__(self, window_ms: int = 1000) -> None:
+        self.window_ms = window_ms
+        self._events: deque[tuple[int, float, float]] = deque()  # (ts, buy, sell)
+
+    def add(self, ts_ms: int, side: str, size: float) -> None:
+        buy = size if side == "buy" else 0.0
+        sell = size if side == "sell" else 0.0
+        self._events.append((ts_ms, buy, sell))
+
+    def snapshot(self, now_ms: int) -> tuple[float, float, float, int]:
+        cutoff = now_ms - self.window_ms
+        while self._events and self._events[0][0] < cutoff:
+            self._events.popleft()
+        buy_size = sum(e[1] for e in self._events)
+        sell_size = sum(e[2] for e in self._events)
+        return (buy_size - sell_size, buy_size, sell_size, len(self._events))
 
 
 class EvalCaptureDB:
@@ -98,6 +121,17 @@ class EvalCaptureDB:
                 fair_value REAL NOT NULL,
                 variance REAL NOT NULL,
                 age_ms REAL NOT NULL,
+                bid_price REAL,
+                ask_price REAL,
+                microprice REAL,
+                depth_imbalance REAL,
+                top_bid_depth REAL,
+                top_ask_depth REAL,
+                mid_volatility_bps REAL,
+                trade_net_flow REAL,
+                trade_buy_size REAL,
+                trade_sell_size REAL,
+                trade_count INTEGER,
                 PRIMARY KEY (update_id, exchange)
             );
 
@@ -132,6 +166,18 @@ class EvalCaptureDB:
         basis_active_venues: list[str],
         basis_estimates: dict[str, float],
         basis_stddevs: dict[str, float],
+        venue_top_of_book: dict[str, tuple[float | None, float | None]],
+        venue_microstructure: dict[
+            str,
+            tuple[
+                float | None,
+                float | None,
+                float | None,
+                float | None,
+                float | None,
+            ],
+        ],
+        venue_trade_flow: dict[str, tuple[float, float, float, int]],
     ) -> None:
         cursor = self.conn.execute(
             """
@@ -173,17 +219,37 @@ class EvalCaptureDB:
         )
         update_id = int(cursor.lastrowid)
 
-        venue_rows = [
-            (
-                update_id,
-                state.exchange,
-                "perp" if is_perp_exchange(state.exchange) else "spot",
-                float(state.fair_value),
-                float(state.variance),
-                float(max(now_ms - state.timestamp_ms, 0)),
+        venue_rows = []
+        for state in latest_venue_states.values():
+            bid, ask = venue_top_of_book.get(state.exchange, (None, None))
+            micro = venue_microstructure.get(
+                state.exchange, (None, None, None, None, None)
             )
-            for state in latest_venue_states.values()
-        ]
+            microprice, depth_imbalance, top_bid_depth, top_ask_depth, mid_vol = micro
+            net_flow, buy_size, sell_size, trade_count = venue_trade_flow.get(
+                state.exchange, (0.0, 0.0, 0.0, 0)
+            )
+            venue_rows.append(
+                (
+                    update_id,
+                    state.exchange,
+                    "perp" if is_perp_exchange(state.exchange) else "spot",
+                    float(state.fair_value),
+                    float(state.variance),
+                    float(max(now_ms - state.timestamp_ms, 0)),
+                    bid,
+                    ask,
+                    microprice,
+                    depth_imbalance,
+                    top_bid_depth,
+                    top_ask_depth,
+                    mid_vol,
+                    net_flow,
+                    buy_size,
+                    sell_size,
+                    trade_count,
+                )
+            )
         self.conn.executemany(
             """
             INSERT INTO venue_states (
@@ -192,8 +258,19 @@ class EvalCaptureDB:
                 venue_kind,
                 fair_value,
                 variance,
-                age_ms
-            ) VALUES (?, ?, ?, ?, ?, ?)
+                age_ms,
+                bid_price,
+                ask_price,
+                microprice,
+                depth_imbalance,
+                top_bid_depth,
+                top_ask_depth,
+                mid_volatility_bps,
+                trade_net_flow,
+                trade_buy_size,
+                trade_sell_size,
+                trade_count
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             venue_rows,
         )
@@ -237,7 +314,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--db-path",
         default="data/filter_eval.sqlite3",
-        help="SQLite file to append captured snapshots to.",
+        help="SQLite file to append captured snapshots to (ignored if --rotate-daily).",
+    )
+    parser.add_argument(
+        "--rotate-daily",
+        action="store_true",
+        help="Write into data/capture/YYYY-MM-DD.sqlite3 and roll over at UTC midnight.",
+    )
+    parser.add_argument(
+        "--capture-dir",
+        default="data/capture",
+        help="Directory for daily rolled captures when --rotate-daily is set.",
     )
     parser.add_argument(
         "--commit-every",
@@ -248,12 +335,17 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def daily_capture_path(base_dir: Path) -> Path:
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return base_dir / f"{today}.sqlite3"
+
+
 def build_socket_specs(args: argparse.Namespace) -> list[tuple[BaseSocket, str | None, str | None]]:
     specs: list[tuple[BaseSocket, str | None, str | None]] = [
         (
             CoinbaseSocket(
                 args.coinbase_market,
-                channels=args.coinbase_channels or ["ticker", "heartbeats", "level2"],
+                channels=args.coinbase_channels or ["ticker", "heartbeats", "level2", "market_trades"],
                 sandbox=args.sandbox,
             ),
             None,
@@ -301,7 +393,13 @@ def build_socket_specs(args: argparse.Namespace) -> list[tuple[BaseSocket, str |
 
 
 async def run_capture(args: argparse.Namespace) -> None:
-    db = EvalCaptureDB(Path(args.db_path))
+    capture_dir = Path(args.capture_dir) if args.rotate_daily else None
+    current_path = (
+        daily_capture_path(capture_dir) if capture_dir is not None else Path(args.db_path)
+    )
+    db = EvalCaptureDB(current_path)
+    if capture_dir is not None:
+        logging.info("capture starting in rolling mode: %s", current_path)
     observation_queue: asyncio.Queue[Observation] = asyncio.Queue()
     socket_specs = build_socket_specs(args)
     tasks = [
@@ -330,6 +428,7 @@ async def run_capture(args: argparse.Namespace) -> None:
     kalman = AdaptiveEfficientPriceKalman(config=build_kalman_config(args))
     basis_filter = VenueBasisKalmanFilter(config=build_basis_filter_config(args))
     last_basis_result = None
+    trade_flow_trackers: dict[str, TradeFlowTracker] = {}
 
     count = 0
     try:
@@ -343,6 +442,14 @@ async def run_capture(args: argparse.Namespace) -> None:
             if now_ms is None:
                 continue
 
+            if isinstance(observation, TradeObservation):
+                tracker = trade_flow_trackers.get(observation.exchange)
+                if tracker is None:
+                    tracker = TradeFlowTracker()
+                    trade_flow_trackers[observation.exchange] = tracker
+                tracker.add(now_ms, observation.side, float(observation.size))
+                continue
+
             engine_key = (observation.exchange, observation.market)
             measurement_engine = measurement_engines.get(engine_key)
             if measurement_engine is None:
@@ -354,6 +461,17 @@ async def run_capture(args: argparse.Namespace) -> None:
             measurement_engine.on_observation(observation)
 
             latest_venue_states.clear()
+            venue_top_of_book: dict[str, tuple[float | None, float | None]] = {}
+            venue_microstructure: dict[
+                str,
+                tuple[
+                    float | None,
+                    float | None,
+                    float | None,
+                    float | None,
+                    float | None,
+                ],
+            ] = {}
             for current_engine_key, current_engine in measurement_engines.items():
                 estimator = estimators.get(current_engine_key)
                 if estimator is None:
@@ -371,6 +489,33 @@ async def run_capture(args: argparse.Namespace) -> None:
                 if venue_state is None:
                     continue
                 latest_venue_states[current_engine.exchange] = venue_state
+                current_measurement = current_engine.current_measurement(now_ms)
+                if current_measurement is not None:
+                    venue_top_of_book[current_engine.exchange] = (
+                        float(current_measurement.bid_price)
+                        if current_measurement.bid_price is not None
+                        else None,
+                        float(current_measurement.ask_price)
+                        if current_measurement.ask_price is not None
+                        else None,
+                    )
+                    venue_microstructure[current_engine.exchange] = (
+                        float(current_measurement.microprice)
+                        if current_measurement.microprice is not None
+                        else None,
+                        float(current_measurement.depth_imbalance)
+                        if current_measurement.depth_imbalance is not None
+                        else None,
+                        float(current_measurement.top_bid_depth)
+                        if current_measurement.top_bid_depth is not None
+                        else None,
+                        float(current_measurement.top_ask_depth)
+                        if current_measurement.top_ask_depth is not None
+                        else None,
+                        float(current_measurement.mid_volatility_bps)
+                        if current_measurement.mid_volatility_bps is not None
+                        else None,
+                    )
 
             if not latest_venue_states:
                 continue
@@ -415,6 +560,11 @@ async def run_capture(args: argparse.Namespace) -> None:
                 last_basis_result = basis_result
             basis_snapshot = basis_result if basis_result is not None else last_basis_result
 
+            venue_trade_flow: dict[str, tuple[float, float, float, int]] = {
+                exchange: tracker.snapshot(now_ms)
+                for exchange, tracker in trade_flow_trackers.items()
+            }
+
             db.insert_snapshot(
                 now_ms=now_ms,
                 event_exchange=observation.exchange,
@@ -451,12 +601,23 @@ async def run_capture(args: argparse.Namespace) -> None:
                 basis_stddevs=(
                     basis_snapshot.basis_stddevs if basis_snapshot is not None else {}
                 ),
+                venue_top_of_book=venue_top_of_book,
+                venue_microstructure=venue_microstructure,
+                venue_trade_flow=venue_trade_flow,
             )
             db.maybe_commit(args.commit_every)
 
+            if capture_dir is not None:
+                new_path = daily_capture_path(capture_dir)
+                if new_path != current_path:
+                    logging.info("rotating DB at UTC midnight: %s -> %s", current_path, new_path)
+                    db.close()
+                    db = EvalCaptureDB(new_path)
+                    current_path = new_path
+
             count += 1
             if count % 1000 == 0:
-                logging.info("captured %s updates into %s", count, args.db_path)
+                logging.info("captured %s updates into %s", count, current_path)
             if args.limit and count >= args.limit:
                 break
     finally:

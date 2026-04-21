@@ -80,6 +80,7 @@ class MarketMeasurementEngine:
         midprice = current_quote.midprice
         microprice = current_quote.microprice
         spread_bps = current_quote.spread_bps
+        bid_price, ask_price = self._extract_top_prices(current_quote)
         top_bid_depth, top_ask_depth = self._extract_top_depths(current_quote)
         depth_imbalance = self._compute_depth_imbalance(top_bid_depth, top_ask_depth)
         mid_volatility_bps = self._compute_rolling_volatility_bps(self._state.recent_midpoints)
@@ -103,6 +104,8 @@ class MarketMeasurementEngine:
             quote_age_ms=quote_age_ms,
             mid_volatility_bps=mid_volatility_bps,
             micro_volatility_bps=micro_volatility_bps,
+            bid_price=bid_price,
+            ask_price=ask_price,
         )
 
     def _record_prices(
@@ -133,6 +136,19 @@ class MarketMeasurementEngine:
         return (
             best_bid.size if best_bid is not None else None,
             best_ask.size if best_ask is not None else None,
+        )
+
+    def _extract_top_prices(
+        self,
+        observation: BBOObservation | OrderBookObservation,
+    ) -> tuple[Decimal | None, Decimal | None]:
+        if isinstance(observation, BBOObservation):
+            return observation.bid_price, observation.ask_price
+        best_bid = observation.best_bid_level
+        best_ask = observation.best_ask_level
+        return (
+            best_bid.price if best_bid is not None else None,
+            best_ask.price if best_ask is not None else None,
         )
 
     def _compute_depth_imbalance(

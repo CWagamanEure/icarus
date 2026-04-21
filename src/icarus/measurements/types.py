@@ -34,6 +34,8 @@ class MarketMeasurement(Measurement):
     quote_age_ms: int | None
     mid_volatility_bps: Decimal | None
     micro_volatility_bps: Decimal | None
+    bid_price: Decimal | None = None
+    ask_price: Decimal | None = None
 
     def display_fields(self) -> tuple[tuple[str, Any], ...]:
         return (
@@ -43,6 +45,8 @@ class MarketMeasurement(Measurement):
             ("midprice", self.midprice),
             ("microprice", self.microprice),
             ("spread_bps", self.spread_bps),
+            ("bid", self.bid_price),
+            ("ask", self.ask_price),
             ("top_depth", (self.top_bid_depth, self.top_ask_depth)),
             ("depth_imbalance", self.depth_imbalance),
             ("quote_age_ms", self.quote_age_ms),
