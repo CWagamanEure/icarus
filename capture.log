@@ -1,0 +1,515 @@
+[2026-04-21T11:02:57Z] starting capture
+2026-04-21 07:02:57,706 INFO root: capture starting in rolling mode: data/capture/2026-04-21.sqlite3
+2026-04-21 07:03:14,269 INFO root: captured 1000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:03:28,781 INFO root: captured 2000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:03:51,934 INFO root: captured 3000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:04:17,187 INFO root: captured 4000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:04:41,824 INFO root: captured 5000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:05:04,696 INFO root: captured 6000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:05:26,603 INFO root: captured 7000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:05:50,208 INFO root: captured 8000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:06:13,971 INFO root: captured 9000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:06:45,664 INFO root: captured 10000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:07:04,328 INFO root: captured 11000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:07:21,995 INFO root: captured 12000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:07:47,637 INFO root: captured 13000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:08:15,337 INFO root: captured 14000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:08:42,475 INFO root: captured 15000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:09:03,568 INFO root: captured 16000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:09:25,473 INFO root: captured 17000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:09:46,704 INFO root: captured 18000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:10:05,998 INFO root: captured 19000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:10:28,293 INFO root: captured 20000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:10:50,846 INFO root: captured 21000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:11:11,651 INFO root: captured 22000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:11:29,848 INFO root: captured 23000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:11:53,026 INFO root: captured 24000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:12:23,895 INFO root: captured 25000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:12:28,153 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 07:12:30,588 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 07:12:34,900 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 07:12:42,097 INFO root: captured 26000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:12:56,990 INFO root: captured 27000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:13:23,083 INFO root: captured 28000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:13:52,348 INFO root: captured 29000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:14:19,871 INFO root: captured 30000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:14:47,852 INFO root: captured 31000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:15:28,629 INFO root: captured 32000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:15:35,883 INFO root: captured 33000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:15:52,859 INFO root: captured 34000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:16:18,897 INFO root: captured 35000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:16:57,978 INFO root: captured 36000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:17:34,769 INFO root: captured 37000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:17:42,365 INFO root: captured 38000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:17:59,303 INFO root: captured 39000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:18:26,948 INFO root: captured 40000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:19:04,066 INFO root: captured 41000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:19:15,700 INFO root: captured 42000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:19:33,438 INFO root: captured 43000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:19:37,825 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 07:20:00,974 INFO root: captured 44000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:20:24,494 INFO root: captured 45000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:20:50,329 INFO root: captured 46000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:21:17,707 INFO root: captured 47000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:21:44,552 INFO root: captured 48000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:22:04,311 INFO root: captured 49000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:22:36,035 INFO root: captured 50000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:23:04,832 INFO root: captured 51000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:23:27,832 INFO root: captured 52000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:23:48,584 INFO root: captured 53000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:24:11,491 INFO root: captured 54000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:24:36,840 INFO root: captured 55000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:25:00,994 INFO root: captured 56000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:25:25,578 INFO root: captured 57000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:25:57,042 INFO root: captured 58000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:26:26,504 INFO root: captured 59000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:26:57,743 INFO root: captured 60000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:27:22,595 INFO root: captured 61000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:27:39,790 INFO root: captured 62000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:27:58,154 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 07:28:02,853 INFO root: captured 63000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:28:04,978 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 07:28:05,011 WARNING CoinbaseSocket: Socket error for wss://advanced-trade-ws.coinbase.com: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 07:28:27,557 INFO root: captured 64000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:29:03,155 INFO root: captured 65000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:29:38,090 INFO root: captured 66000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:29:59,179 INFO root: captured 67000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:30:20,063 INFO root: captured 68000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:30:47,324 INFO root: captured 69000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:31:12,021 INFO root: captured 70000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:31:33,788 INFO root: captured 71000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:31:54,187 INFO root: captured 72000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:32:14,884 INFO root: captured 73000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:32:34,355 INFO root: captured 74000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:32:56,696 INFO root: captured 75000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:33:21,201 INFO root: captured 76000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:33:43,091 INFO root: captured 77000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:34:01,776 INFO root: captured 78000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:34:21,853 INFO root: captured 79000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:34:41,630 INFO root: captured 80000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:35:05,347 INFO root: captured 81000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:35:24,568 INFO root: captured 82000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:35:45,782 INFO root: captured 83000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:36:06,938 INFO root: captured 84000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:36:31,921 INFO root: captured 85000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:36:42,097 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 07:36:53,228 INFO root: captured 86000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:37:20,645 INFO root: captured 87000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:37:42,492 INFO root: captured 88000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:37:54,666 INFO root: captured 89000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:38:01,426 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 07:38:10,409 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: timed out during opening handshake. Reconnecting in 2.0s.
+2026-04-21 07:38:12,829 INFO root: captured 90000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:38:37,243 INFO root: captured 91000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:38:55,867 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: timed out during opening handshake. Reconnecting in 2.0s.
+2026-04-21 07:38:58,898 INFO root: captured 92000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:39:21,809 INFO root: captured 93000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:39:42,982 INFO root: captured 94000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:40:16,833 INFO root: captured 95000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:40:38,799 INFO root: captured 96000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:40:57,429 INFO root: captured 97000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:41:19,469 INFO root: captured 98000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:41:41,671 INFO root: captured 99000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:42:02,498 INFO root: captured 100000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:42:34,666 INFO root: captured 101000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:43:07,950 INFO root: captured 102000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:43:41,957 INFO root: captured 103000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:44:00,424 INFO root: captured 104000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:44:25,936 INFO root: captured 105000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:44:56,286 INFO root: captured 106000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:45:14,641 INFO root: captured 107000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:45:42,204 INFO root: captured 108000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:45:44,031 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 07:45:48,526 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 07:45:48,526 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 07:46:03,958 INFO root: captured 109000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:46:27,241 INFO root: captured 110000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:46:47,017 INFO root: captured 111000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:47:08,568 INFO root: captured 112000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:47:31,457 INFO root: captured 113000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:47:53,058 INFO root: captured 114000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:48:15,234 INFO root: captured 115000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:48:36,869 INFO root: captured 116000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:48:57,637 INFO root: captured 117000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:49:18,120 INFO root: captured 118000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:49:38,964 INFO root: captured 119000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:50:15,034 INFO root: captured 120000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:50:33,327 INFO root: captured 121000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:50:53,022 INFO root: captured 122000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:51:17,502 INFO root: captured 123000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:51:39,483 INFO root: captured 124000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:52:01,111 INFO root: captured 125000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:52:24,052 INFO root: captured 126000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:52:53,643 INFO root: captured 127000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:53:17,168 INFO root: captured 128000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:53:41,317 INFO root: captured 129000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:54:12,640 INFO root: captured 130000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:54:39,898 INFO root: captured 131000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:55:08,458 INFO root: captured 132000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:55:34,175 INFO root: captured 133000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:55:59,395 INFO root: captured 134000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:56:23,722 INFO root: captured 135000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:56:47,364 INFO root: captured 136000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:57:10,079 INFO root: captured 137000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:57:25,628 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 07:57:29,505 INFO root: captured 138000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:57:52,246 INFO root: captured 139000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:57:56,097 WARNING CoinbaseSocket: Socket error for wss://advanced-trade-ws.coinbase.com: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 07:58:06,405 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: timed out during opening handshake. Reconnecting in 2.0s.
+2026-04-21 07:58:14,216 INFO root: captured 140000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:58:26,241 WARNING CoinbaseSocket: Socket error for wss://advanced-trade-ws.coinbase.com: timed out during opening handshake. Reconnecting in 2.0s.
+2026-04-21 07:58:34,281 INFO root: captured 141000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:58:36,851 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: timed out during opening handshake. Reconnecting in 4.0s.
+2026-04-21 07:58:57,483 INFO root: captured 142000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:59:06,990 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: timed out during opening handshake. Reconnecting in 8.0s.
+2026-04-21 07:59:22,099 INFO root: captured 143000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 07:59:49,631 INFO root: captured 144000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:00:12,511 INFO root: captured 145000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:00:39,212 INFO root: captured 146000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:01:12,013 INFO root: captured 147000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:01:32,885 INFO root: captured 148000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:01:55,281 INFO root: captured 149000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:02:15,646 INFO root: captured 150000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:02:34,268 INFO root: captured 151000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:02:52,769 INFO root: captured 152000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:03:20,910 INFO root: captured 153000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:03:45,214 INFO root: captured 154000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:04:05,416 INFO root: captured 155000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:04:29,815 INFO root: captured 156000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:05:02,560 INFO root: captured 157000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:05:29,142 INFO root: captured 158000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:05:59,226 INFO root: captured 159000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:06:33,069 INFO root: captured 160000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:06:52,719 INFO root: captured 161000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:07:08,945 INFO root: captured 162000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:07:36,625 INFO root: captured 163000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:08:11,217 INFO root: captured 164000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:08:21,556 INFO root: captured 165000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:08:42,166 INFO root: captured 166000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:08:43,247 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:09:14,375 INFO root: captured 167000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:09:42,623 INFO root: captured 168000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:10:09,954 INFO root: captured 169000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:10:40,629 INFO root: captured 170000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:11:09,316 INFO root: captured 171000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:11:45,833 INFO root: captured 172000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:12:15,372 INFO root: captured 173000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:12:38,989 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:12:39,842 INFO root: captured 174000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:13:04,837 INFO root: captured 175000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:13:10,839 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:13:40,149 INFO root: captured 176000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:14:13,988 INFO root: captured 177000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:14:41,645 INFO root: captured 178000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:15:02,235 INFO root: captured 179000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:15:19,094 INFO root: captured 180000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:15:32,754 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: timed out during opening handshake. Reconnecting in 2.0s.
+2026-04-21 08:15:32,761 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: timed out during opening handshake. Reconnecting in 2.0s.
+2026-04-21 08:15:38,245 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:15:39,155 INFO root: captured 181000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:15:58,731 INFO root: captured 182000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:16:22,458 INFO root: captured 183000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:16:44,384 INFO root: captured 184000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:17:07,289 INFO root: captured 185000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:17:27,683 INFO root: captured 186000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:17:48,794 INFO root: captured 187000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:18:11,281 INFO root: captured 188000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:18:35,317 INFO root: captured 189000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:18:56,590 INFO root: captured 190000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:19:02,943 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:19:20,154 INFO root: captured 191000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:19:40,460 INFO root: captured 192000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:20:00,906 INFO root: captured 193000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:20:24,084 INFO root: captured 194000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:20:45,327 INFO root: captured 195000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:21:03,224 INFO root: captured 196000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:21:21,906 INFO root: captured 197000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:21:48,727 INFO root: captured 198000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:22:12,114 INFO root: captured 199000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:22:32,960 INFO root: captured 200000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:22:58,699 INFO root: captured 201000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:23:19,043 INFO root: captured 202000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:23:44,907 INFO root: captured 203000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:24:00,385 INFO root: captured 204000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:24:20,488 INFO root: captured 205000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:24:41,480 INFO root: captured 206000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:25:10,437 INFO root: captured 207000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:25:32,490 INFO root: captured 208000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:25:44,671 INFO root: captured 209000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:26:03,645 INFO root: captured 210000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:26:24,627 INFO root: captured 211000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:26:49,211 INFO root: captured 212000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:27:05,449 INFO root: captured 213000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:27:30,398 INFO root: captured 214000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:27:50,440 INFO root: captured 215000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:28:11,823 INFO root: captured 216000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:28:35,989 INFO root: captured 217000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:28:51,876 INFO root: captured 218000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:29:09,799 INFO root: captured 219000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:29:26,494 INFO root: captured 220000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:29:48,229 INFO root: captured 221000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:30:07,676 INFO root: captured 222000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:30:24,666 INFO root: captured 223000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:30:42,877 INFO root: captured 224000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:31:02,654 INFO root: captured 225000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:31:22,185 INFO root: captured 226000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:31:42,051 INFO root: captured 227000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:31:58,736 INFO root: captured 228000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:32:14,720 INFO root: captured 229000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:32:34,676 INFO root: captured 230000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:32:37,786 WARNING CoinbaseSocket: Socket error for wss://advanced-trade-ws.coinbase.com: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:32:37,787 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:32:57,229 INFO root: captured 231000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:33:16,686 INFO root: captured 232000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:33:33,236 INFO root: captured 233000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:33:52,283 INFO root: captured 234000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:34:09,959 INFO root: captured 235000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:34:28,788 INFO root: captured 236000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:34:48,194 INFO root: captured 237000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:34:50,688 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: timed out during opening handshake. Reconnecting in 2.0s.
+2026-04-21 08:34:50,689 WARNING CoinbaseSocket: Socket error for wss://advanced-trade-ws.coinbase.com: timed out during opening handshake. Reconnecting in 2.0s.
+2026-04-21 08:35:06,760 INFO root: captured 238000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:35:26,051 INFO root: captured 239000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:35:45,411 INFO root: captured 240000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:36:03,169 INFO root: captured 241000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:36:21,247 INFO root: captured 242000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:36:40,911 INFO root: captured 243000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:37:00,550 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: timed out during opening handshake. Reconnecting in 4.0s.
+2026-04-21 08:37:02,244 INFO root: captured 244000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:37:20,944 INFO root: captured 245000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:37:33,206 WARNING CoinbaseSocket: Socket error for wss://advanced-trade-ws.coinbase.com: timed out during opening handshake. Reconnecting in 4.0s.
+2026-04-21 08:37:39,400 INFO root: captured 246000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:37:59,470 INFO root: captured 247000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:38:19,453 INFO root: captured 248000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:38:38,447 INFO root: captured 249000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:38:58,001 INFO root: captured 250000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:39:13,147 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: timed out during opening handshake. Reconnecting in 8.0s.
+2026-04-21 08:39:16,996 INFO root: captured 251000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:39:31,681 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:39:33,658 INFO root: captured 252000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:39:49,709 WARNING CoinbaseSocket: Socket error for wss://advanced-trade-ws.coinbase.com: timed out during opening handshake. Reconnecting in 8.0s.
+2026-04-21 08:39:49,714 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:39:52,486 INFO root: captured 253000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:40:10,806 INFO root: captured 254000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:40:28,324 INFO root: captured 255000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:40:44,729 INFO root: captured 256000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:41:04,510 INFO root: captured 257000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:41:23,417 INFO root: captured 258000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:41:42,983 INFO root: captured 259000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:42:03,235 INFO root: captured 260000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:42:24,164 INFO root: captured 261000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:42:44,113 INFO root: captured 262000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:43:04,026 INFO root: captured 263000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:43:08,534 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:43:08,535 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:43:08,535 WARNING CoinbaseSocket: Socket error for wss://advanced-trade-ws.coinbase.com: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:43:08,535 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:43:20,400 INFO root: captured 264000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:43:39,909 INFO root: captured 265000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:43:55,748 INFO root: captured 266000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:44:16,190 INFO root: captured 267000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:44:34,679 INFO root: captured 268000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:44:52,329 INFO root: captured 269000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:45:11,088 INFO root: captured 270000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:45:29,594 INFO root: captured 271000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:45:47,717 INFO root: captured 272000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:45:51,435 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:45:51,435 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:45:51,435 WARNING CoinbaseSocket: Socket error for wss://advanced-trade-ws.coinbase.com: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:45:51,435 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:46:04,446 INFO root: captured 273000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:46:19,277 INFO root: captured 274000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:46:34,318 INFO root: captured 275000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:46:54,906 INFO root: captured 276000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:47:14,550 INFO root: captured 277000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:47:34,580 INFO root: captured 278000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:47:51,935 INFO root: captured 279000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:48:11,076 INFO root: captured 280000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:48:31,559 INFO root: captured 281000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:48:45,763 INFO root: captured 282000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:49:03,759 INFO root: captured 283000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:49:24,407 INFO root: captured 284000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:49:37,725 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:49:39,236 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:49:41,876 INFO root: captured 285000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:49:55,686 INFO root: captured 286000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:50:09,616 INFO root: captured 287000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:50:28,511 INFO root: captured 288000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:50:49,407 INFO root: captured 289000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:51:11,324 INFO root: captured 290000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:51:27,620 INFO root: captured 291000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:51:44,710 INFO root: captured 292000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:52:09,098 INFO root: captured 293000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:52:23,073 INFO root: captured 294000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:52:40,420 INFO root: captured 295000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:52:48,761 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:52:50,611 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:52:59,758 INFO root: captured 296000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:53:16,412 INFO root: captured 297000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:53:35,051 INFO root: captured 298000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:53:52,609 INFO root: captured 299000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:54:12,649 INFO root: captured 300000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:54:31,713 INFO root: captured 301000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:54:50,605 INFO root: captured 302000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:55:09,453 INFO root: captured 303000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:55:29,946 INFO root: captured 304000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:55:46,614 INFO root: captured 305000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:56:05,362 INFO root: captured 306000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:56:22,379 INFO root: captured 307000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:56:40,849 INFO root: captured 308000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:57:02,687 INFO root: captured 309000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:57:17,149 INFO root: captured 310000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:57:31,930 INFO root: captured 311000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:57:54,329 INFO root: captured 312000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:58:15,617 INFO root: captured 313000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:58:37,192 INFO root: captured 314000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:58:55,256 INFO root: captured 315000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:59:08,082 INFO root: captured 316000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:59:19,742 INFO root: captured 317000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:59:35,355 INFO root: captured 318000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 08:59:49,265 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:59:49,265 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 08:59:55,885 INFO root: captured 319000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:00:14,697 INFO root: captured 320000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:00:32,027 INFO root: captured 321000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:00:50,770 INFO root: captured 322000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:01:11,871 INFO root: captured 323000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:01:28,420 INFO root: captured 324000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:01:47,318 INFO root: captured 325000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:02:05,352 INFO root: captured 326000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:02:25,335 INFO root: captured 327000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:02:48,722 INFO root: captured 328000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:03:08,346 INFO root: captured 329000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:03:27,837 INFO root: captured 330000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:03:42,403 INFO root: captured 331000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:04:02,057 INFO root: captured 332000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:04:25,160 INFO root: captured 333000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:04:41,151 INFO root: captured 334000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:04:53,684 INFO root: captured 335000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:05:06,073 INFO root: captured 336000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:05:24,449 INFO root: captured 337000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:05:46,231 INFO root: captured 338000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:06:09,965 INFO root: captured 339000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:06:23,212 INFO root: captured 340000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:06:29,476 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:06:39,414 INFO root: captured 341000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:06:57,454 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:06:58,781 INFO root: captured 342000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:06:59,578 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:07:19,613 INFO root: captured 343000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:07:37,874 INFO root: captured 344000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:07:55,585 INFO root: captured 345000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:08:15,339 INFO root: captured 346000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:08:35,046 INFO root: captured 347000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:08:54,728 INFO root: captured 348000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:09:14,003 INFO root: captured 349000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:09:32,356 INFO root: captured 350000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:09:52,673 INFO root: captured 351000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:10:08,117 INFO root: captured 352000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:10:30,450 INFO root: captured 353000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:10:46,534 INFO root: captured 354000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:11:04,361 INFO root: captured 355000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:11:26,538 INFO root: captured 356000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:11:47,625 INFO root: captured 357000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:12:02,568 INFO root: captured 358000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:12:14,711 INFO root: captured 359000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:12:15,002 WARNING CoinbaseSocket: Socket error for wss://advanced-trade-ws.coinbase.com: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:12:34,144 INFO root: captured 360000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:12:53,738 INFO root: captured 361000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:13:13,926 INFO root: captured 362000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:13:34,022 INFO root: captured 363000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:13:53,053 INFO root: captured 364000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:13:54,860 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:14:10,048 INFO root: captured 365000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:14:10,607 WARNING CoinbaseSocket: Socket error for wss://advanced-trade-ws.coinbase.com: timed out during opening handshake. Reconnecting in 2.0s.
+2026-04-21 09:14:10,607 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:14:25,936 INFO root: captured 366000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:14:43,431 INFO root: captured 367000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:14:45,902 WARNING CoinbaseSocket: Socket error for wss://advanced-trade-ws.coinbase.com: timed out during opening handshake. Reconnecting in 4.0s.
+2026-04-21 09:14:45,903 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: timed out during opening handshake. Reconnecting in 2.0s.
+2026-04-21 09:15:01,820 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: timed out during opening handshake. Reconnecting in 2.0s.
+2026-04-21 09:15:03,704 INFO root: captured 368000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:15:21,178 INFO root: captured 369000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:15:27,005 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: timed out during opening handshake. Reconnecting in 4.0s.
+2026-04-21 09:15:27,005 WARNING CoinbaseSocket: Socket error for wss://advanced-trade-ws.coinbase.com: timed out during opening handshake. Reconnecting in 8.0s.
+2026-04-21 09:15:40,524 INFO root: captured 370000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:16:07,039 INFO root: captured 371000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:16:24,604 INFO root: captured 372000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:16:43,594 INFO root: captured 373000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:17:02,173 INFO root: captured 374000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:17:22,989 INFO root: captured 375000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:17:39,935 INFO root: captured 376000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:17:55,522 INFO root: captured 377000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:18:12,762 INFO root: captured 378000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:18:30,921 INFO root: captured 379000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:18:52,464 INFO root: captured 380000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:19:13,401 INFO root: captured 381000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:19:30,383 INFO root: captured 382000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:19:55,001 INFO root: captured 383000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:20:16,950 INFO root: captured 384000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:20:34,599 INFO root: captured 385000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:20:51,839 INFO root: captured 386000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:21:09,969 INFO root: captured 387000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:21:28,180 INFO root: captured 388000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:21:46,356 INFO root: captured 389000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:22:04,380 INFO root: captured 390000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:22:21,756 INFO root: captured 391000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:22:38,880 INFO root: captured 392000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:22:56,889 INFO root: captured 393000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:23:15,633 INFO root: captured 394000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:23:36,997 INFO root: captured 395000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:23:56,230 INFO root: captured 396000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:24:13,831 INFO root: captured 397000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:24:36,830 INFO root: captured 398000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:24:53,492 INFO root: captured 399000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:25:17,203 INFO root: captured 400000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:25:19,306 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:25:19,307 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:25:19,307 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:25:19,307 WARNING CoinbaseSocket: Socket error for wss://advanced-trade-ws.coinbase.com: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:25:36,940 INFO root: captured 401000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:25:48,698 INFO root: captured 402000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:26:02,548 INFO root: captured 403000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:26:21,695 INFO root: captured 404000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:26:43,172 INFO root: captured 405000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:27:02,678 INFO root: captured 406000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:27:17,153 INFO root: captured 407000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:27:33,020 INFO root: captured 408000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:27:51,929 INFO root: captured 409000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:28:12,024 INFO root: captured 410000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:28:31,039 INFO root: captured 411000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:28:48,507 INFO root: captured 412000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:29:05,847 INFO root: captured 413000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:29:26,335 INFO root: captured 414000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:29:43,088 INFO root: captured 415000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:30:02,616 INFO root: captured 416000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:30:18,471 INFO root: captured 417000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:30:19,824 WARNING CoinbaseSocket: Socket error for wss://advanced-trade-ws.coinbase.com: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:30:37,024 INFO root: captured 418000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:30:56,637 WARNING OkxSocket: Socket error for wss://ws.okx.com:8443/ws/v5/public: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:30:56,637 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:30:56,637 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:31:03,532 INFO root: captured 419000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:31:17,944 INFO root: captured 420000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:31:36,947 INFO root: captured 421000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:31:53,240 INFO root: captured 422000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:32:14,605 INFO root: captured 423000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:32:35,645 INFO root: captured 424000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:32:54,930 INFO root: captured 425000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:33:13,894 INFO root: captured 426000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:33:32,860 INFO root: captured 427000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:33:53,330 INFO root: captured 428000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:34:12,500 INFO root: captured 429000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:34:28,744 INFO root: captured 430000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:34:35,196 WARNING HyperliquidSocket: Socket error for wss://api.hyperliquid.xyz/ws: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:34:35,234 WARNING KrakenSocket: Socket error for wss://ws.kraken.com/v2: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:34:39,771 WARNING CoinbaseSocket: Socket error for wss://advanced-trade-ws.coinbase.com: sent 1011 (internal error) keepalive ping timeout; no close frame received. Reconnecting in 1.0s.
+2026-04-21 09:34:45,601 INFO root: captured 431000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:35:01,239 INFO root: captured 432000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:35:21,751 INFO root: captured 433000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:35:40,223 INFO root: captured 434000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:36:02,527 INFO root: captured 435000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:36:19,846 INFO root: captured 436000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:36:37,627 INFO root: captured 437000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:37:00,015 INFO root: captured 438000 updates into data/capture/2026-04-21.sqlite3
+2026-04-21 09:37:19,879 INFO root: captured 439000 updates into data/capture/2026-04-21.sqlite3
